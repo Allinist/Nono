@@ -30,6 +30,8 @@ import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.FileUpload
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.PostAdd
 import androidx.compose.material.icons.outlined.Refresh
@@ -79,6 +81,7 @@ import com.tom.nono.data.HolidayCalendarConfig
 import com.tom.nono.data.HolidayCalendarStore
 import com.tom.nono.data.ManualDayOverride
 import com.tom.nono.data.NotificationRule
+import com.tom.nono.data.RuleDayMode
 import com.tom.nono.data.RuleMode
 import com.tom.nono.data.RuleStore
 import com.tom.nono.data.lastSyncLabel
@@ -214,6 +217,26 @@ private fun NonoApp() {
                             store.saveRules(updated)
                             delayedNotices = delayedNoticeStore.loadNotices()
                         },
+                        onMoveUp = { rule ->
+                            val index = rules.indexOfFirst { it.id == rule.id }
+                            if (index > 0) {
+                                val updated = rules.toMutableList().apply {
+                                    add(index - 1, removeAt(index))
+                                }
+                                rules = updated
+                                store.saveRules(updated)
+                            }
+                        },
+                        onMoveDown = { rule ->
+                            val index = rules.indexOfFirst { it.id == rule.id }
+                            if (index in 0 until rules.lastIndex) {
+                                val updated = rules.toMutableList().apply {
+                                    add(index + 1, removeAt(index))
+                                }
+                                rules = updated
+                                store.saveRules(updated)
+                            }
+                        },
                         modifier = Modifier.padding(innerPadding),
                     )
                     NonoTab.Add -> AddRuleTab(
@@ -297,6 +320,8 @@ private fun RulesTab(
     installedApps: List<InstalledAppInfo>,
     onRuleChange: (NotificationRule) -> Unit,
     onDelete: (NotificationRule) -> Unit,
+    onMoveUp: (NotificationRule) -> Unit,
+    onMoveDown: (NotificationRule) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val expandedRuleIds = remember { mutableStateListOf<String>() }
@@ -326,6 +351,10 @@ private fun RulesTab(
                     onToggleExpanded = {
                         if (expanded) expandedRuleIds.remove(rule.id) else expandedRuleIds.add(rule.id)
                     },
+                    canMoveUp = rules.indexOfFirst { it.id == rule.id } > 0,
+                    canMoveDown = rules.indexOfFirst { it.id == rule.id } < rules.lastIndex,
+                    onMoveUp = { onMoveUp(rule) },
+                    onMoveDown = { onMoveDown(rule) },
                     onRuleChange = onRuleChange,
                     onDelete = { onDelete(rule) },
                 )
@@ -428,6 +457,7 @@ private fun AddRuleTab(
     var enabled by rememberSaveable { mutableStateOf(true) }
     var mode by rememberSaveable { mutableStateOf(RuleMode.BLOCK) }
     var soundMode by rememberSaveable { mutableStateOf(DeviceSoundMode.KEEP) }
+    var dayMode by rememberSaveable { mutableStateOf(RuleDayMode.WORKDAY) }
     var blockAll by rememberSaveable { mutableStateOf(false) }
     var selectedDays by remember { mutableStateOf(defaultActiveDays()) }
 
@@ -507,6 +537,7 @@ private fun AddRuleTab(
                     }
 
                     ModeSelector(selectedMode = mode, onModeChange = { mode = it })
+                    RuleDayModeSelector(selectedMode = dayMode, onModeChange = { dayMode = it })
                     if (mode == RuleMode.DELAY) {
                         OutlinedTextField(
                             value = remindAtText,
@@ -527,16 +558,25 @@ private fun AddRuleTab(
 
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("\u751f\u6548\u65e5\u671f", fontWeight = FontWeight.SemiBold)
-                        weekDays.chunked(4).forEach { row ->
+                        val dayChips = listOf<DayOfWeek?>(null) + weekDays
+                        dayChips.chunked(4).forEach { row ->
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 row.forEach { day ->
-                                    FilterChip(
-                                        selected = day in selectedDays,
-                                        onClick = {
-                                            selectedDays = if (day in selectedDays) selectedDays - day else selectedDays + day
-                                        },
-                                        label = { Text(day.cnLabel) },
-                                    )
+                                    if (day == null) {
+                                        FilterChip(
+                                            selected = selectedDays.size == weekDays.size,
+                                            onClick = { selectedDays = weekDays.toSet() },
+                                            label = { Text("\u5168\u90e8") },
+                                        )
+                                    } else {
+                                        FilterChip(
+                                            selected = day in selectedDays,
+                                            onClick = {
+                                                selectedDays = if (day in selectedDays) selectedDays - day else selectedDays + day
+                                            },
+                                            label = { Text(day.cnLabel) },
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -574,6 +614,7 @@ private fun AddRuleTab(
                                     soundMode = soundMode,
                                     startMinutes = startText.toMinutesOrDefault(9 * 60),
                                     endMinutes = endText.toMinutesOrDefault(18 * 60),
+                                    dayMode = dayMode,
                                     activeDays = selectedDays,
                                     targets = if (blockAll) listOf("*") else splitTargets(targetsText),
                                 ),
@@ -590,6 +631,7 @@ private fun AddRuleTab(
                             enabled = true
                             mode = RuleMode.BLOCK
                             soundMode = DeviceSoundMode.KEEP
+                            dayMode = RuleDayMode.WORKDAY
                             blockAll = false
                             selectedDays = defaultActiveDays()
                         },
@@ -690,8 +732,7 @@ private fun SettingsTab(
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         label = { Text("在线日历地址") },
-//                        placeholder = { Text("https://timor.tech/api/holiday/batch") },
-                        placeholder = { Text("https://calendars.icloud.com/holidays/cn_zh.ics") },
+                        placeholder = { Text("https://timor.tech/api/holiday/batch") },
                     )
                     Text(holidayConfig.lastSyncLabel(), style = MaterialTheme.typography.bodySmall)
                     if (calendarStatus.isNotBlank()) {
@@ -921,6 +962,21 @@ private fun ModeSelector(
 }
 
 @Composable
+private fun RuleDayModeSelector(
+    selectedMode: RuleDayMode,
+    onModeChange: (RuleDayMode) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("规则日类型", fontWeight = FontWeight.SemiBold)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(selected = selectedMode == RuleDayMode.WORKDAY, onClick = { onModeChange(RuleDayMode.WORKDAY) }, label = { Text("工作") })
+            FilterChip(selected = selectedMode == RuleDayMode.RESTDAY, onClick = { onModeChange(RuleDayMode.RESTDAY) }, label = { Text("休息") })
+            FilterChip(selected = selectedMode == RuleDayMode.ALL, onClick = { onModeChange(RuleDayMode.ALL) }, label = { Text("全部") })
+        }
+    }
+}
+
+@Composable
 private fun SoundModeSelector(
     selectedMode: DeviceSoundMode,
     onModeChange: (DeviceSoundMode) -> Unit,
@@ -972,6 +1028,10 @@ private fun RuleEditorCard(
     appInfo: InstalledAppInfo?,
     expanded: Boolean,
     onToggleExpanded: () -> Unit,
+    canMoveUp: Boolean,
+    canMoveDown: Boolean,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
     onRuleChange: (NotificationRule) -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -982,6 +1042,7 @@ private fun RuleEditorCard(
     var mode by remember(rule.id) { mutableStateOf(rule.mode) }
     var remindAtText by remember(rule.id) { mutableStateOf(rule.remindAtMinutes.toHourMinute()) }
     var soundMode by remember(rule.id) { mutableStateOf(rule.soundMode) }
+    var dayMode by remember(rule.id) { mutableStateOf(rule.dayMode) }
     var startText by remember(rule.id) { mutableStateOf(rule.startMinutes.toHourMinute()) }
     var endText by remember(rule.id) { mutableStateOf(rule.endMinutes.toHourMinute()) }
     var targetsText by remember(rule.id) { mutableStateOf(if (rule.targets == listOf("*")) "*" else rule.targets.joinToString("\n")) }
@@ -999,6 +1060,7 @@ private fun RuleEditorCard(
                 soundMode = soundMode,
                 startMinutes = startText.toMinutesOrDefault(rule.startMinutes),
                 endMinutes = endText.toMinutesOrDefault(rule.endMinutes),
+                dayMode = dayMode,
                 activeDays = selectedDays,
                 targets = splitTargets(targetsText),
             ),
@@ -1032,7 +1094,7 @@ private fun RuleEditorCard(
                     onClick = {},
                     label = {
                         Text(
-                            when (mode) {
+                            "${rule.dayModeLabel()} · " + when (mode) {
                                 RuleMode.BLOCK -> "\u5c4f\u853d"
                                 RuleMode.ALLOW -> "\u5141\u8bb8"
                                 RuleMode.DELAY -> "\u5ef6\u540e"
@@ -1041,6 +1103,12 @@ private fun RuleEditorCard(
                     },
                 )
                 Spacer(modifier = Modifier.width(6.dp))
+                IconButton(onClick = onMoveUp, enabled = canMoveUp) {
+                    Icon(Icons.Outlined.KeyboardArrowUp, contentDescription = "上移规则")
+                }
+                IconButton(onClick = onMoveDown, enabled = canMoveDown) {
+                    Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = "下移规则")
+                }
                 Switch(
                     checked = enabled,
                     onCheckedChange = {
@@ -1069,6 +1137,7 @@ private fun RuleEditorCard(
                 soundMode = soundMode,
                 startMinutes = startText.toMinutesOrDefault(rule.startMinutes),
                 endMinutes = endText.toMinutesOrDefault(rule.endMinutes),
+                dayMode = dayMode,
                 activeDays = selectedDays,
                 targets = splitTargets(targetsText),
             )
@@ -1079,7 +1148,7 @@ private fun RuleEditorCard(
                 RuleMode.DELAY -> "\u63d0\u9192 ${previewRule.remindAtMinutes.toHourMinute()}"
             }
             Text(
-                text = "\u9884\u89c8: $previewMode | ${previewRule.timeRangeLabel()} | ${previewRule.dayLabel()} | $previewTargets",
+                text = "\u9884\u89c8: ${previewRule.dayModeLabel()} | $previewMode | ${previewRule.timeRangeLabel()} | ${previewRule.dayLabel()} | $previewTargets",
                 style = MaterialTheme.typography.bodySmall,
             )
 
@@ -1106,17 +1175,29 @@ private fun RuleEditorCard(
 
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("\u751f\u6548\u65e5\u671f", fontWeight = FontWeight.SemiBold)
-                    weekDays.chunked(4).forEach { row ->
+                    val dayChips = listOf<DayOfWeek?>(null) + weekDays
+                    dayChips.chunked(4).forEach { row ->
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             row.forEach { day ->
-                                FilterChip(
-                                    selected = day in selectedDays,
-                                    onClick = {
-                                        selectedDays = if (day in selectedDays) selectedDays - day else selectedDays + day
-                                        persist()
-                                    },
-                                    label = { Text(day.cnLabel) },
-                                )
+                                if (day == null) {
+                                    FilterChip(
+                                        selected = selectedDays.size == weekDays.size,
+                                        onClick = {
+                                            selectedDays = weekDays.toSet()
+                                            persist()
+                                        },
+                                        label = { Text("\u5168\u90e8") },
+                                    )
+                                } else {
+                                    FilterChip(
+                                        selected = day in selectedDays,
+                                        onClick = {
+                                            selectedDays = if (day in selectedDays) selectedDays - day else selectedDays + day
+                                            persist()
+                                        },
+                                        label = { Text(day.cnLabel) },
+                                    )
+                                }
                             }
                         }
                     }

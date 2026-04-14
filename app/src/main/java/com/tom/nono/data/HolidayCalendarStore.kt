@@ -52,7 +52,7 @@ class HolidayCalendarStore(private val context: Context) {
     }
 
     fun saveConfig(config: HolidayCalendarConfig) {
-        prefs.edit().putString(KEY_CONFIG, config.toJson().toString()).apply()
+        prefs.edit().putString(KEY_CONFIG, config.toJson().toString()).commit()
     }
 
     fun loadOverrides(): List<ManualDayOverride> {
@@ -85,11 +85,11 @@ class HolidayCalendarStore(private val context: Context) {
         return synced ?: loadBundledSnapshot()
     }
 
-    fun isWorkingDate(date: LocalDate, activeDays: Set<DayOfWeek>): Boolean {
-        if (date.dayOfWeek !in activeDays) return false
-
+    fun isWorkingDate(date: LocalDate): Boolean {
         val config = loadConfig()
-        if (!config.useChinaWorkdayCalendar) return true
+        if (!config.useChinaWorkdayCalendar) {
+            return date.dayOfWeek !in setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY)
+        }
 
         val override = loadOverrides().firstOrNull { it.date == date }
         if (override != null) return override.isWorkday
@@ -148,7 +148,7 @@ class HolidayCalendarStore(private val context: Context) {
     private fun saveOverrides(overrides: List<ManualDayOverride>) {
         val array = JSONArray()
         overrides.forEach { array.put(it.toJson()) }
-        prefs.edit().putString(KEY_OVERRIDES, array.toString()).apply()
+        prefs.edit().putString(KEY_OVERRIDES, array.toString()).commit()
     }
 
     private fun loadBundledSnapshot(): HolidayCalendarSnapshot =
@@ -157,7 +157,7 @@ class HolidayCalendarStore(private val context: Context) {
             .toSnapshot()
 
     private fun saveSnapshot(snapshot: HolidayCalendarSnapshot) {
-        prefs.edit().putString(KEY_SYNCED_SNAPSHOT, snapshot.toJson().toString()).apply()
+        prefs.edit().putString(KEY_SYNCED_SNAPSHOT, snapshot.toJson().toString()).commit()
     }
 
     private fun fetchYearStatuses(baseUrl: String, year: Int): Map<LocalDate, Boolean> {
