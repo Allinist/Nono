@@ -1,0 +1,45 @@
+# Gradle
+.gradle/
+build/
+**/build/
+
+# Local SDK / machine-specific config
+local.properties
+
+# IntelliJ / Android Studio
+*.iml
+out/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+
+# Kotlin / Java temp files
+*.class
+*.tmp
+*.swp
+*.swo
+
+# Android signing and local secrets
+*.jks
+*.keystore
+keystore.properties
+google-services.json
+secrets.properties
+
+# Android Studio captures / profiling
+captures/
+
+# NDK / CMake
+.cxx/
+externalNativeBuild/
+
+# Fastlane / screenshots / test artifacts
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/
+test-artifacts/
