@@ -1,8 +1,13 @@
 package com.tom.nono.service
 
+import android.app.NotificationManager
+import android.media.AudioManager
 import android.app.Notification
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import com.tom.nono.data.DeviceSoundMode
+import com.tom.nono.data.HolidayCalendarStore
+import com.tom.nono.data.RuleMode
 import com.tom.nono.data.RuleStore
 import java.time.LocalDateTime
 import java.util.Locale
@@ -12,19 +17,70 @@ class AppNotificationGateService : NotificationListenerService() {
         super.onNotificationPosted(sbn)
 
         val store = RuleStore(this)
+        val holidayCalendarStore = HolidayCalendarStore(this)
         val rules = store.loadRules()
         val notificationText = buildNotificationBlob(sbn)
+        val now = LocalDateTime.now()
 
-        val shouldBlock = rules.any { rule ->
+        val matchedRules = rules.filter { rule ->
             rule.enabled &&
                 rule.packageName.equals(sbn.packageName, ignoreCase = true) &&
                 rule.normalizedTargets().isNotEmpty() &&
                 notificationText.matchesTargets(rule.normalizedTargets()) &&
-                !rule.isInWorkingWindow(LocalDateTime.now().dayOfWeek, LocalDateTime.now().toLocalTime())
+                !rule.isInWorkingWindow(
+                    nowDay = now.dayOfWeek,
+                    nowTime = now.toLocalTime(),
+                    isWorkingDate = holidayCalendarStore.isWorkingDate(now.toLocalDate(), rule.activeDays),
+                )
         }
 
-        if (shouldBlock) {
-            cancelNotification(sbn.key)
+        val selectedRule = when {
+            matchedRules.any { it.mode == RuleMode.ALLOW } -> matchedRules.first { it.mode == RuleMode.ALLOW }
+            matchedRules.any { it.mode == RuleMode.DELAY } -> matchedRules.first { it.mode == RuleMode.DELAY }
+            matchedRules.any { it.mode == RuleMode.BLOCK } -> matchedRules.first { it.mode == RuleMode.BLOCK }
+            else -> null
+        } ?: return
+
+        applySoundMode(selectedRule.soundMode)
+
+        when (selectedRule.mode) {
+            RuleMode.ALLOW -> Unit
+            RuleMode.BLOCK -> cancelNotification(sbn.key)
+            RuleMode.DELAY -> {
+                cancelNotification(sbn.key)
+                DelayedNotificationScheduler.schedule(
+                    context = this,
+                    sbn = sbn,
+                    ruleId = selectedRule.id,
+                    appName = selectedRule.appName,
+                    packageName = selectedRule.packageName,
+                    title = extractTitle(sbn),
+                    text = buildNotificationBlob(sbn),
+                    remindAtMinutes = selectedRule.remindAtMinutes,
+                    activeDays = selectedRule.activeDays,
+                )
+            }
+        }
+    }
+
+    private fun applySoundMode(soundMode: DeviceSoundMode) {
+        if (soundMode == DeviceSoundMode.KEEP) return
+
+        val audioManager = getSystemService(AudioManager::class.java)
+        if (audioManager.isVolumeFixed) return
+
+        if (soundMode == DeviceSoundMode.SILENT || soundMode == DeviceSoundMode.VIBRATE) {
+            val notificationManager = getSystemService(NotificationManager::class.java)
+            if (!notificationManager.isNotificationPolicyAccessGranted) {
+                return
+            }
+        }
+
+        audioManager.ringerMode = when (soundMode) {
+            DeviceSoundMode.KEEP -> audioManager.ringerMode
+            DeviceSoundMode.RING -> AudioManager.RINGER_MODE_NORMAL
+            DeviceSoundMode.VIBRATE -> AudioManager.RINGER_MODE_VIBRATE
+            DeviceSoundMode.SILENT -> AudioManager.RINGER_MODE_SILENT
         }
     }
 
@@ -41,6 +97,11 @@ class AppNotificationGateService : NotificationListenerService() {
         )
 
         return pieces.joinToString(separator = "\n")
+    }
+
+    private fun extractTitle(sbn: StatusBarNotification): String {
+        val extras = sbn.notification.extras
+        return extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
     }
 }
 
