@@ -1,12 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <application
         android:allowBackup="true"
-        android:icon="@android:drawable/ic_dialog_info"
+        android:icon="@drawable/logo_light"
+        android:roundIcon="@drawable/logo_light"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@android:style/Theme.DeviceDefault.DayNight">
+        android:theme="@style/Theme.Nono">
         <activity
             android:name=".MainActivity"
             android:exported="true">
@@ -33,6 +39,10 @@
                 android:name="android.service.notification.disabled_filter_types"
                 android:value="ongoing" />
         </service>
+
+        <receiver
+            android:name=".service.DelayedNotificationReceiver"
+            android:exported="false" />
     </application>
 
 </manifest>
