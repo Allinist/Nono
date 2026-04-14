@@ -84,26 +84,7 @@ data class NotificationRule(
     }
 
     companion object {
-        fun defaultRules(): List<NotificationRule> = listOf(
-            NotificationRule(
-                appName = "\u5fae\u4fe1",
-                packageName = "com.tencent.mm",
-                note = "\u793a\u4f8b\u8054\u7cfb\u4eba\u767d\u540d\u5355",
-                mode = RuleMode.BLOCK,
-                remindAtMinutes = 9 * 60,
-                soundMode = DeviceSoundMode.KEEP,
-                targets = listOf("\u8001\u677f", "\u9879\u76ee\u7fa4"),
-            ),
-            NotificationRule(
-                appName = "\u5929\u67a2",
-                packageName = "",
-                note = "\u975e\u5de5\u4f5c\u65f6\u95f4\u6574\u5305\u5c4f\u853d",
-                mode = RuleMode.BLOCK,
-                remindAtMinutes = 9 * 60,
-                soundMode = DeviceSoundMode.VIBRATE,
-                targets = listOf("*"),
-            ),
-        )
+        fun defaultRules(): List<NotificationRule> = emptyList()
     }
 }
 

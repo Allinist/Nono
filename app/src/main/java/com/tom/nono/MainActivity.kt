@@ -19,8 +19,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -30,14 +32,13 @@ import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.FileUpload
-import androidx.compose.material.icons.outlined.KeyboardArrowDown
-import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.PostAdd
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Rule
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.UnfoldMore
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -69,9 +70,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.tom.nono.data.DeviceSoundMode
@@ -217,25 +220,15 @@ private fun NonoApp() {
                             store.saveRules(updated)
                             delayedNotices = delayedNoticeStore.loadNotices()
                         },
-                        onMoveUp = { rule ->
-                            val index = rules.indexOfFirst { it.id == rule.id }
-                            if (index > 0) {
-                                val updated = rules.toMutableList().apply {
-                                    add(index - 1, removeAt(index))
-                                }
-                                rules = updated
-                                store.saveRules(updated)
+                        onMoveRule = { fromIndex, toIndex ->
+                            if (fromIndex !in rules.indices || toIndex !in rules.indices || fromIndex == toIndex) {
+                                return@RulesTab
                             }
-                        },
-                        onMoveDown = { rule ->
-                            val index = rules.indexOfFirst { it.id == rule.id }
-                            if (index in 0 until rules.lastIndex) {
-                                val updated = rules.toMutableList().apply {
-                                    add(index + 1, removeAt(index))
-                                }
-                                rules = updated
-                                store.saveRules(updated)
+                            val updated = rules.toMutableList().apply {
+                                add(toIndex, removeAt(fromIndex))
                             }
+                            rules = updated
+                            store.saveRules(updated)
                         },
                         modifier = Modifier.padding(innerPadding),
                     )
@@ -269,7 +262,7 @@ private fun NonoApp() {
                             val updatedConfig = holidayConfig.copy(useChinaWorkdayCalendar = enabled)
                             holidayConfig = updatedConfig
                             holidayCalendarStore.saveConfig(updatedConfig)
-                            calendarStatus = if (enabled) updatedConfig.lastSyncLabel() else "已关闭中国工作日历"
+                            calendarStatus = if (enabled) updatedConfig.lastSyncLabel() else "已关闭中国工作日历"    
                         },
                         onCalendarUrlChange = { remoteUrl ->
                             val updatedConfig = holidayConfig.copy(remoteUrl = remoteUrl.trim())
@@ -333,11 +326,11 @@ private fun RulesTab(
     installedApps: List<InstalledAppInfo>,
     onRuleChange: (NotificationRule) -> Unit,
     onDelete: (NotificationRule) -> Unit,
-    onMoveUp: (NotificationRule) -> Unit,
-    onMoveDown: (NotificationRule) -> Unit,
+    onMoveRule: (fromIndex: Int, toIndex: Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val expandedRuleIds = remember { mutableStateListOf<String>() }
+    var draggingRuleId by remember { mutableStateOf<String?>(null) }
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
@@ -355,19 +348,26 @@ private fun RulesTab(
                 EmptyStateCard("\u5f53\u524d\u8fd8\u6ca1\u6709\u89c4\u5219\uff0c\u53bb\u201c\u65b0\u589e\u914d\u7f6e\u201d\u91cc\u6dfb\u52a0\u7b2c\u4e00\u6761\u89c4\u5219\u3002")
             }
         } else {
-            items(rules, key = { it.id }) { rule ->
+            itemsIndexed(rules, key = { _, rule -> rule.id }) { _, rule ->
                 val expanded = rule.id in expandedRuleIds
                 RuleEditorCard(
                     rule = rule,
                     appInfo = installedApps.firstOrNull { it.packageName == rule.packageName },
                     expanded = expanded,
+                    isDragging = draggingRuleId == rule.id,
                     onToggleExpanded = {
                         if (expanded) expandedRuleIds.remove(rule.id) else expandedRuleIds.add(rule.id)
                     },
-                    canMoveUp = rules.indexOfFirst { it.id == rule.id } > 0,
-                    canMoveDown = rules.indexOfFirst { it.id == rule.id } < rules.lastIndex,
-                    onMoveUp = { onMoveUp(rule) },
-                    onMoveDown = { onMoveDown(rule) },
+                    onDragStart = { draggingRuleId = rule.id },
+                    onDragMove = { direction ->
+                        val currentIndex = rules.indexOfFirst { it.id == rule.id }
+                        if (currentIndex == -1) return@RuleEditorCard
+                        val targetIndex = (currentIndex + direction).coerceIn(0, rules.lastIndex)
+                        if (targetIndex != currentIndex) {
+                            onMoveRule(currentIndex, targetIndex)
+                        }
+                    },
+                    onDragEnd = { draggingRuleId = null },
                     onRuleChange = onRuleChange,
                     onDelete = { onDelete(rule) },
                 )
@@ -1040,11 +1040,11 @@ private fun RuleEditorCard(
     rule: NotificationRule,
     appInfo: InstalledAppInfo?,
     expanded: Boolean,
+    isDragging: Boolean,
     onToggleExpanded: () -> Unit,
-    canMoveUp: Boolean,
-    canMoveDown: Boolean,
-    onMoveUp: () -> Unit,
-    onMoveDown: () -> Unit,
+    onDragStart: () -> Unit,
+    onDragMove: (direction: Int) -> Unit,
+    onDragEnd: () -> Unit,
     onRuleChange: (NotificationRule) -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -1060,6 +1060,9 @@ private fun RuleEditorCard(
     var endText by remember(rule.id) { mutableStateOf(rule.endMinutes.toHourMinute()) }
     var targetsText by remember(rule.id) { mutableStateOf(if (rule.targets == listOf("*")) "*" else rule.targets.joinToString("\n")) }
     var selectedDays by remember(rule.id) { mutableStateOf(rule.activeDays) }
+    val dragStepPx = with(androidx.compose.ui.platform.LocalDensity.current) { 72.dp.toPx() }
+    var dragOffsetY by remember(rule.id) { mutableStateOf(0f) }
+    var dragAccumulatedY by remember(rule.id) { mutableStateOf(0f) }
 
     fun persist() {
         onRuleChange(
@@ -1081,9 +1084,11 @@ private fun RuleEditorCard(
     }
 
     Card(
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F7F4)),
+        colors = CardDefaults.cardColors(containerColor = if (isDragging) Color(0xFFF2EFE7) else Color(0xFFF8F7F4)),
         shape = RoundedCornerShape(24.dp),
-        modifier = Modifier.animateContentSize(),
+        modifier = Modifier
+            .offset { IntOffset(0, dragOffsetY.toInt()) }
+            .animateContentSize(),
     ) {
         Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(
@@ -1115,12 +1120,47 @@ private fun RuleEditorCard(
                         )
                     },
                 )
-                Spacer(modifier = Modifier.width(6.dp))
-                IconButton(onClick = onMoveUp, enabled = canMoveUp) {
-                    Icon(Icons.Outlined.KeyboardArrowUp, contentDescription = "上移规则")
-                }
-                IconButton(onClick = onMoveDown, enabled = canMoveDown) {
-                    Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = "下移规则")
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(14.dp))
+                        .pointerInput(rule.id) {
+                            detectDragGesturesAfterLongPress(
+                                onDragStart = {
+                                    dragOffsetY = 0f
+                                    dragAccumulatedY = 0f
+                                    onDragStart()
+                                },
+                                onDragEnd = {
+                                    dragOffsetY = 0f
+                                    dragAccumulatedY = 0f
+                                    onDragEnd()
+                                },
+                                onDragCancel = {
+                                    dragOffsetY = 0f
+                                    dragAccumulatedY = 0f
+                                    onDragEnd()
+                                },
+                            ) { change, dragAmount ->
+                                change.consume()
+                                dragOffsetY += dragAmount.y
+                                dragAccumulatedY += dragAmount.y
+                                while (dragAccumulatedY >= dragStepPx) {
+                                    onDragMove(1)
+                                    dragAccumulatedY -= dragStepPx
+                                }
+                                while (dragAccumulatedY <= -dragStepPx) {
+                                    onDragMove(-1)
+                                    dragAccumulatedY += dragStepPx
+                                }
+                            }
+                        }
+                        .padding(horizontal = 2.dp, vertical = 6.dp),
+                ) {
+                    Icon(
+                        Icons.Outlined.UnfoldMore,
+                        contentDescription = "Drag to reorder",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
                 Switch(
                     checked = enabled,
@@ -1129,12 +1169,6 @@ private fun RuleEditorCard(
                         persist()
                     },
                 )
-                IconButton(onClick = onToggleExpanded) {
-                    Icon(
-                        imageVector = if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
-                        contentDescription = if (expanded) "\u6536\u8d77\u89c4\u5219" else "\u5c55\u5f00\u89c4\u5219",
-                    )
-                }
                 IconButton(onClick = onDelete) {
                     Icon(Icons.Outlined.Delete, contentDescription = "\u5220\u9664\u89c4\u5219")
                 }

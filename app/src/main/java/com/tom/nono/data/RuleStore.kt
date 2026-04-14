@@ -9,8 +9,8 @@ class RuleStore(context: Context) {
     private val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
 
     fun loadRules(): List<NotificationRule> {
-        val raw = prefs.getString(KEY_RULES, null) ?: return NotificationRule.defaultRules()
-        return parseRules(raw) ?: NotificationRule.defaultRules()
+        val raw = prefs.getString(KEY_RULES, null) ?: return emptyList()
+        return parseRules(raw) ?: emptyList()
     }
 
     fun saveRules(rules: List<NotificationRule>) {
