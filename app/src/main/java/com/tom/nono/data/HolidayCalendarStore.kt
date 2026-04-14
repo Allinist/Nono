@@ -6,6 +6,7 @@ import com.tom.nono.R
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
+import java.io.FileNotFoundException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.time.DayOfWeek
@@ -14,7 +15,7 @@ import java.time.Year
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-private const val DEFAULT_REMOTE_URL = "https://timor.tech/api/holiday/batch"
+private const val DEFAULT_REMOTE_URL = "https://timor.tech/api/holiday/year"
 
 data class HolidayCalendarConfig(
     val useChinaWorkdayCalendar: Boolean = false,
@@ -41,6 +42,7 @@ data class HolidaySyncResult(
     val success: Boolean,
     val message: String,
     val syncedAtMillis: Long = 0L,
+    val debugInfo: String = "",
 )
 
 class HolidayCalendarStore(private val context: Context) {
@@ -103,19 +105,49 @@ class HolidayCalendarStore(private val context: Context) {
 
     fun syncNow(referenceYear: Int = Year.now().value): HolidaySyncResult {
         val config = loadConfig()
-        val remoteUrl = config.remoteUrl.trim()
+        val remoteUrl = normalizeRemoteUrl(config.remoteUrl.trim())
         if (remoteUrl.isBlank()) {
-            return HolidaySyncResult(success = false, message = "请先填写在线日历地址")
+            return HolidaySyncResult(
+                success = false,
+                message = "请先填写在线日历地址",
+                debugInfo = "remoteUrl=<blank>",
+            )
         }
 
         return runCatching {
             val years = listOf(referenceYear, referenceYear + 1)
             val statuses = linkedMapOf<LocalDate, Boolean>()
+            val syncedYears = mutableListOf<Int>()
+            val failedYears = mutableListOf<Int>()
+            val debugLines = mutableListOf("remoteUrl=$remoteUrl")
 
             years.forEach { year ->
-                fetchYearStatuses(remoteUrl, year).forEach { (date, isWorkday) ->
-                    statuses[date] = isWorkday
-                }
+                runCatching { fetchYearStatuses(remoteUrl, year) }
+                    .onSuccess { yearStatuses ->
+                        debugLines += "year=$year count=${yearStatuses.size}"
+                        if (yearStatuses.isNotEmpty()) {
+                            syncedYears += year
+                            yearStatuses.forEach { (date, isWorkday) ->
+                                statuses[date] = isWorkday
+                            }
+                        } else {
+                            failedYears += year
+                        }
+                    }
+                    .onFailure { error ->
+                        debugLines += "year=$year error=${error::class.simpleName}:${error.message.orEmpty()}"
+                        failedYears += year
+                    }
+            }
+
+            if (statuses.isEmpty()) {
+                val message = "同步失败：没有拿到可用的工作日数据"
+                saveConfig(config.copy(remoteUrl = remoteUrl, lastSyncMessage = message))
+                return@runCatching HolidaySyncResult(
+                    success = false,
+                    message = message,
+                    debugInfo = debugLines.joinToString("\n"),
+                )
             }
 
             val now = System.currentTimeMillis()
@@ -127,22 +159,44 @@ class HolidayCalendarStore(private val context: Context) {
                 updatedAtMillis = now,
             )
             saveSnapshot(snapshot)
+
+            val syncMessage = if (failedYears.isEmpty()) {
+                "已同步 ${syncedYears.joinToString()} 中国工作日历"
+            } else {
+                "已同步 ${syncedYears.joinToString()}，${failedYears.joinToString()} 获取失败"
+            }
+
             saveConfig(
                 config.copy(
+                    remoteUrl = remoteUrl,
                     lastSyncAtMillis = now,
-                    lastSyncMessage = "已同步 ${years.first()}-${years.last()} 中国工作日历",
+                    lastSyncMessage = syncMessage,
                 ),
             )
+
             HolidaySyncResult(
                 success = true,
-                message = "已同步 ${years.first()}-${years.last()} 中国工作日历",
+                message = syncMessage,
                 syncedAtMillis = now,
+                debugInfo = debugLines.joinToString("\n"),
             )
         }.getOrElse { error ->
             val message = error.message?.takeIf { it.isNotBlank() } ?: "同步失败"
-            saveConfig(config.copy(lastSyncMessage = message))
-            HolidaySyncResult(success = false, message = message)
+            saveConfig(config.copy(remoteUrl = remoteUrl, lastSyncMessage = message))
+            HolidaySyncResult(
+                success = false,
+                message = message,
+                debugInfo = "remoteUrl=$remoteUrl\nfatal=${error::class.simpleName}:${error.message.orEmpty()}",
+            )
         }
+    }
+
+    private fun normalizeRemoteUrl(rawUrl: String): String {
+        if (rawUrl.isBlank()) return DEFAULT_REMOTE_URL
+        return rawUrl
+            .replace("\\s+".toRegex(), "")
+            .replace("/batch", "/year")
+            .removeSuffix("/")
     }
 
     private fun saveOverrides(overrides: List<ManualDayOverride>) {
@@ -161,41 +215,88 @@ class HolidayCalendarStore(private val context: Context) {
     }
 
     private fun fetchYearStatuses(baseUrl: String, year: Int): Map<LocalDate, Boolean> {
-        val dates = generateSequence(LocalDate.of(year, 1, 1)) { current ->
-            current.plusDays(1).takeIf { it.year == year }
-        }.toList()
+        val candidateUrls = buildList {
+            val normalizedBase = baseUrl.trimEnd('/')
+            add("$normalizedBase/$year/?type=Y&week=Y")
+            add("$normalizedBase/$year?type=Y&week=Y")
+            if (normalizedBase.startsWith("https://timor.tech")) {
+                val httpBase = normalizedBase.replaceFirst("https://", "http://")
+                add("$httpBase/$year/?type=Y&week=Y")
+                add("$httpBase/$year?type=Y&week=Y")
+            }
+        }
+
+        val errors = mutableListOf<String>()
+        candidateUrls.forEach { query ->
+            runCatching {
+                val connection = (URL(query).openConnection() as HttpURLConnection).apply {
+                    requestMethod = "GET"
+                    connectTimeout = 10_000
+                    readTimeout = 10_000
+                    instanceFollowRedirects = true
+                    setRequestProperty("Accept", "application/json")
+                    setRequestProperty("User-Agent", "Nono/1.0 (Android)")
+                }
+                connection.useJsonBody(query)
+            }.onSuccess { body ->
+                val statusMap = parseYearStatusResponse(body, year)
+                if (statusMap.isNotEmpty()) return statusMap
+                errors += "url=$query empty-data"
+            }.onFailure { error ->
+                errors += "url=$query ${error::class.simpleName}:${error.message.orEmpty()}"
+            }
+        }
+
+        error(errors.joinToString(" | "))
+    }
+
+    private fun parseYearStatusResponse(body: String, year: Int): Map<LocalDate, Boolean> {
+        val root = JSONObject(body)
+        if (root.optInt("code", -1) != 0) {
+            error("在线日历返回异常: ${root.optString("msg").ifBlank { root.optString("message") }}")
+        }
+
+        val typeObject = root.optJSONObject("type")
+            ?: root.optJSONObject("holiday")
+            ?: root.optJSONObject("data")
+            ?: return emptyMap()
+
+        if (typeObject.length() == 0) return emptyMap()
 
         val statusMap = linkedMapOf<LocalDate, Boolean>()
-        dates.chunked(50).forEach { batch ->
-            val query = buildString {
-                append(baseUrl.trimEnd('/'))
-                append("?type=Y")
-                batch.forEach { date ->
-                    append("&d=")
-                    append(date)
-                }
+        val keys = typeObject.keys()
+        while (keys.hasNext()) {
+            val key = keys.next()
+            val normalizedDate = if (key.length == 5) "$year-$key" else key
+            val rawValue = typeObject.opt(key)
+            val type = when (rawValue) {
+                is JSONObject -> rawValue.optInt("type", -1)
+                is Number -> rawValue.toInt()
+                else -> -1
             }
-            val connection = (URL(query).openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                connectTimeout = 10_000
-                readTimeout = 10_000
-                setRequestProperty("Accept", "application/json")
-            }
-            val body = connection.inputStream.bufferedReader().use(BufferedReader::readText)
-            connection.disconnect()
-
-            val root = JSONObject(body)
-            if (root.optInt("code", -1) != 0) {
-                error("在线日历返回异常")
-            }
-
-            val typeObject = root.optJSONObject("type") ?: error("在线日历缺少 type 字段")
-            batch.forEach { date ->
-                val type = typeObject.optJSONObject(date.toString())?.optInt("type", -1) ?: -1
-                statusMap[date] = type == 0 || type == 3
+            if (type >= 0) {
+                statusMap[LocalDate.parse(normalizedDate)] = type == 0 || type == 3
             }
         }
         return statusMap
+    }
+
+    private fun HttpURLConnection.useJsonBody(query: String): String {
+        return try {
+            val statusCode = responseCode
+            val stream = if (statusCode in 200..299) inputStream else errorStream
+            val body = stream?.bufferedReader()?.use(BufferedReader::readText).orEmpty()
+            if (statusCode !in 200..299) {
+                error("HTTP $statusCode ${responseMessage.orEmpty()} body=${body.take(200)} url=$query")
+            }
+            body
+        } catch (error: FileNotFoundException) {
+            val statusCode = runCatching { responseCode }.getOrDefault(-1)
+            val body = errorStream?.bufferedReader()?.use(BufferedReader::readText).orEmpty()
+            error("HTTP $statusCode body=${body.take(200)} url=$query cause=${error.message.orEmpty()}")
+        } finally {
+            disconnect()
+        }
     }
 
     companion object {
@@ -203,6 +304,7 @@ class HolidayCalendarStore(private val context: Context) {
         private const val KEY_CONFIG = "holiday_calendar_config"
         private const val KEY_SYNCED_SNAPSHOT = "holiday_calendar_snapshot"
         private const val KEY_OVERRIDES = "holiday_calendar_overrides"
+
         @RawRes
         private val BUNDLED_RESOURCE = R.raw.china_workday_bundle
     }
