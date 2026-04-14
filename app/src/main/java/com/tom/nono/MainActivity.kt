@@ -282,8 +282,21 @@ private fun NonoApp() {
                                 val result = withContext(Dispatchers.IO) {
                                     holidayCalendarStore.syncNow()
                                 }
-                                holidayConfig = holidayCalendarStore.loadConfig()
-                                calendarStatus = result.message
+                                holidayConfig = if (result.success && result.syncedAtMillis > 0L) {
+                                    holidayConfig.copy(
+                                        lastSyncAtMillis = result.syncedAtMillis,
+                                        lastSyncMessage = result.message,
+                                    )
+                                } else {
+                                    holidayCalendarStore.loadConfig()
+                                }
+                                calendarStatus = buildString {
+                                    append(result.message)
+                                    if (result.debugInfo.isNotBlank()) {
+                                        append("\n")
+                                        append(result.debugInfo)
+                                    }
+                                }
                             }
                         },
                         onAddOverride = { dateText, isWorkday, note ->
@@ -732,7 +745,7 @@ private fun SettingsTab(
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         label = { Text("在线日历地址") },
-                        placeholder = { Text("https://timor.tech/api/holiday/batch") },
+                        placeholder = { Text("https://timor.tech/api/holiday/year") },
                     )
                     Text(holidayConfig.lastSyncLabel(), style = MaterialTheme.typography.bodySmall)
                     if (calendarStatus.isNotBlank()) {
