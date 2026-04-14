@@ -17,6 +17,13 @@ enum class DeviceSoundMode {
     SILENT,
 }
 
+enum class RuleDayMode {
+    WORKDAY,
+    RESTDAY,
+    ALL,
+    MANUAL,
+}
+
 data class NotificationRule(
     val id: String = UUID.randomUUID().toString(),
     val appName: String,
@@ -28,6 +35,8 @@ data class NotificationRule(
     val soundMode: DeviceSoundMode = DeviceSoundMode.KEEP,
     val startMinutes: Int = 9 * 60,
     val endMinutes: Int = 18 * 60,
+    val dayMode: RuleDayMode = RuleDayMode.WORKDAY,
+    val manualEnabled: Boolean = false,
     val activeDays: Set<DayOfWeek> = setOf(
         DayOfWeek.MONDAY,
         DayOfWeek.TUESDAY,
@@ -49,6 +58,20 @@ data class NotificationRule(
     fun dayLabel(): String = activeDays
         .sortedBy { it.value }
         .joinToString(" ") { it.displayName }
+
+    fun dayModeLabel(): String = when (dayMode) {
+        RuleDayMode.WORKDAY -> "\u5de5\u4f5c"
+        RuleDayMode.RESTDAY -> "\u4f11\u606f"
+        RuleDayMode.ALL -> "\u5168\u90e8"
+        RuleDayMode.MANUAL -> "\u5168\u90e8"
+    }
+
+    fun matchesDayContext(isWorkingDate: Boolean): Boolean = when (dayMode) {
+        RuleDayMode.WORKDAY -> isWorkingDate
+        RuleDayMode.RESTDAY -> !isWorkingDate
+        RuleDayMode.ALL -> true
+        RuleDayMode.MANUAL -> true
+    }
 
     fun isInWorkingWindow(nowDay: DayOfWeek, nowTime: LocalTime, isWorkingDate: Boolean = nowDay in activeDays): Boolean {
         if (!isWorkingDate) return false

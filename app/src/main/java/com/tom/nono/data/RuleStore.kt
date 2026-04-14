@@ -55,6 +55,8 @@ private fun NotificationRule.toJson(): JSONObject = JSONObject().apply {
     put("soundMode", soundMode.name)
     put("startMinutes", startMinutes)
     put("endMinutes", endMinutes)
+    put("dayMode", dayMode.name)
+    put("manualEnabled", manualEnabled)
     put("targets", JSONArray(normalizedTargets()))
     put("days", JSONArray(activeDays.map { it.name }))
 }
@@ -76,6 +78,11 @@ private fun JSONObject.toRule(): NotificationRule = NotificationRule(
         ?: DeviceSoundMode.KEEP,
     startMinutes = optInt("startMinutes", 9 * 60),
     endMinutes = optInt("endMinutes", 18 * 60),
+    dayMode = optString("dayMode")
+        .takeIf { it.isNotBlank() }
+        ?.let { RuleDayMode.valueOf(it) }
+        ?: RuleDayMode.WORKDAY,
+    manualEnabled = optBoolean("manualEnabled", false),
     activeDays = optJSONArray("days")?.let { jsonArray ->
         buildSet {
             for (index in 0 until jsonArray.length()) {

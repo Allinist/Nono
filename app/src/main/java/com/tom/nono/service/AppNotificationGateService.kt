@@ -21,16 +21,19 @@ class AppNotificationGateService : NotificationListenerService() {
         val rules = store.loadRules()
         val notificationText = buildNotificationBlob(sbn)
         val now = LocalDateTime.now()
+        val isWorkingDate = holidayCalendarStore.isWorkingDate(now.toLocalDate())
 
         val matchedRules = rules.filter { rule ->
             rule.enabled &&
                 rule.packageName.equals(sbn.packageName, ignoreCase = true) &&
                 rule.normalizedTargets().isNotEmpty() &&
+                rule.matchesDayContext(isWorkingDate) &&
+                now.dayOfWeek in rule.activeDays &&
                 notificationText.matchesTargets(rule.normalizedTargets()) &&
                 !rule.isInWorkingWindow(
                     nowDay = now.dayOfWeek,
                     nowTime = now.toLocalTime(),
-                    isWorkingDate = holidayCalendarStore.isWorkingDate(now.toLocalDate(), rule.activeDays),
+                    isWorkingDate = true,
                 )
         }
 
@@ -58,6 +61,8 @@ class AppNotificationGateService : NotificationListenerService() {
                     text = buildNotificationBlob(sbn),
                     remindAtMinutes = selectedRule.remindAtMinutes,
                     activeDays = selectedRule.activeDays,
+                    dayMode = selectedRule.dayMode,
+                    manualEnabled = selectedRule.manualEnabled,
                 )
             }
         }

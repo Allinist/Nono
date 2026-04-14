@@ -7,6 +7,7 @@ import android.content.Intent
 import com.tom.nono.data.DelayedNotice
 import com.tom.nono.data.DelayedNoticeStore
 import com.tom.nono.data.HolidayCalendarStore
+import com.tom.nono.data.RuleDayMode
 import java.time.DayOfWeek
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -25,9 +26,11 @@ object DelayedNotificationScheduler {
         text: String,
         remindAtMinutes: Int,
         activeDays: Set<DayOfWeek>,
+        dayMode: RuleDayMode,
+        manualEnabled: Boolean,
     ) {
         val requestCode = (sbn.key.hashCode() + sbn.postTime.hashCode()).absoluteValue
-        val scheduledAtMillis = nextTriggerAtMillis(context, remindAtMinutes, activeDays)
+        val scheduledAtMillis = nextTriggerAtMillis(context, remindAtMinutes, activeDays, dayMode, manualEnabled)
         val intent = Intent(context, DelayedNotificationReceiver::class.java).apply {
             putExtra(DelayedNotificationReceiver.EXTRA_TITLE, title)
             putExtra(DelayedNotificationReceiver.EXTRA_TEXT, text)
@@ -66,13 +69,23 @@ object DelayedNotificationScheduler {
         context: Context,
         remindAtMinutes: Int,
         activeDays: Set<DayOfWeek>,
+        dayMode: RuleDayMode,
+        manualEnabled: Boolean,
     ): Long {
         val now = LocalDateTime.now()
         val reminderTime = LocalTime.of(remindAtMinutes / 60, remindAtMinutes % 60)
         val calendarStore = HolidayCalendarStore(context)
         for (dayOffset in 0..30) {
             val candidate = now.toLocalDate().plusDays(dayOffset.toLong()).atTime(reminderTime)
-            if (!calendarStore.isWorkingDate(candidate.toLocalDate(), activeDays)) continue
+            if (candidate.dayOfWeek !in activeDays) continue
+            val isWorkingDate = calendarStore.isWorkingDate(candidate.toLocalDate())
+            val dateMatched = when (dayMode) {
+                RuleDayMode.WORKDAY -> isWorkingDate
+                RuleDayMode.RESTDAY -> !isWorkingDate
+                RuleDayMode.ALL -> true
+                RuleDayMode.MANUAL -> manualEnabled
+            }
+            if (!dateMatched) continue
             if (candidate.isAfter(now)) {
                 return candidate.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
             }
