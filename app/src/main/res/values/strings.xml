@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Nono</string>
+    <string name="service_label">Nono 通知规则</string>
+</resources>
