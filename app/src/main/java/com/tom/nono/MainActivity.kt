@@ -95,6 +95,7 @@ import com.tom.nono.data.RuleMode
 import com.tom.nono.data.RuleStore
 import com.tom.nono.data.lastSyncLabel
 import com.tom.nono.service.AppNotificationGateService
+import com.tom.nono.service.DelayedNotificationScheduler
 import com.tom.nono.service.ListenerKeepAliveService
 import java.text.SimpleDateFormat
 import java.time.DayOfWeek
@@ -287,6 +288,18 @@ private fun NonoApp() {
                     )
                     NonoTab.Notifications -> NotificationsTab(
                         notices = delayedNotices,
+                        onDeleteNotice = { notice ->
+                            DelayedNotificationScheduler.cancel(context, notice.id)
+                            delayedNoticeStore.removeNotice(notice.id)
+                            delayedNotices = delayedNoticeStore.loadNotices()
+                        },
+                        onDeleteGroup = { noticeIds ->
+                            noticeIds.forEach { id ->
+                                DelayedNotificationScheduler.cancel(context, id)
+                                delayedNoticeStore.removeNotice(id)
+                            }
+                            delayedNotices = delayedNoticeStore.loadNotices()
+                        },
                         modifier = Modifier.padding(innerPadding),
                     )
                     NonoTab.Settings -> SettingsTab(
@@ -441,6 +454,8 @@ private fun RulesTab(
 @Composable
 private fun NotificationsTab(
     notices: List<DelayedNotice>,
+    onDeleteNotice: (DelayedNotice) -> Unit,
+    onDeleteGroup: (List<String>) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val expandedGroups = remember { mutableStateListOf<String>() }
@@ -488,6 +503,12 @@ private fun NotificationsTab(
                                     Text(appLabel, fontWeight = FontWeight.SemiBold)
                                     Text("$timeLabel · ${groupNotices.size} \u6761", style = MaterialTheme.typography.bodySmall)
                                 }
+                                IconButton(onClick = { onDeleteGroup(groupNotices.map { it.id }) }) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Delete,
+                                        contentDescription = "\u5220\u9664\u6574\u7ec4",
+                                    )
+                                }
                                 Icon(
                                     imageVector = if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
                                     contentDescription = null,
@@ -496,13 +517,22 @@ private fun NotificationsTab(
                             if (expanded) {
                                 Spacer(modifier = Modifier.height(10.dp))
                                 groupNotices.forEach { notice ->
-                                    Column(
+                                    Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .padding(vertical = 6.dp),
+                                        verticalAlignment = Alignment.Top,
                                     ) {
-                                        Text(notice.title.ifBlank { "\u5ef6\u540e\u63d0\u9192" }, fontWeight = FontWeight.SemiBold)
-                                        Text(notice.text.take(120), style = MaterialTheme.typography.bodySmall)
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(notice.title.ifBlank { "\u5ef6\u540e\u63d0\u9192" }, fontWeight = FontWeight.SemiBold)
+                                            Text(notice.text.take(120), style = MaterialTheme.typography.bodySmall)
+                                        }
+                                        IconButton(onClick = { onDeleteNotice(notice) }) {
+                                            Icon(
+                                                imageVector = Icons.Outlined.Delete,
+                                                contentDescription = "\u5220\u9664",
+                                            )
+                                        }
                                     }
                                 }
                             }

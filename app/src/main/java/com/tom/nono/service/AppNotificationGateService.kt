@@ -6,6 +6,7 @@ import android.app.Notification
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.Bundle
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
@@ -114,7 +115,7 @@ class AppNotificationGateService : NotificationListenerService() {
                     appName = selectedRule.appName,
                     packageName = selectedRule.packageName,
                     title = extractTitle(sbn),
-                    text = buildNotificationBlob(sbn),
+                    text = extractDisplayText(sbn),
                     remindAtMinutes = selectedRule.remindAtMinutes,
                     activeDays = selectedRule.activeDays,
                     dayMode = selectedRule.dayMode,
@@ -172,23 +173,73 @@ class AppNotificationGateService : NotificationListenerService() {
 
     private fun buildNotificationBlob(sbn: StatusBarNotification): String {
         val extras = sbn.notification.extras
-        val pieces = listOfNotNull(
-            extras.getCharSequence(Notification.EXTRA_TITLE)?.toString(),
-            extras.getCharSequence(Notification.EXTRA_TEXT)?.toString(),
-            extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString(),
-            extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString(),
-            extras.getCharSequence(Notification.EXTRA_SUMMARY_TEXT)?.toString(),
-            extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)?.toString(),
-            sbn.packageName,
-        )
+        val pieces = mutableListOf<String>()
 
-        return pieces.joinToString(separator = "\n")
+        fun add(piece: CharSequence?) {
+            val text = piece?.toString()?.trim().orEmpty()
+            if (text.isNotBlank()) pieces.add(text)
+        }
+
+        add(extras.getCharSequence(Notification.EXTRA_TITLE))
+        add(extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE))
+        add(extras.getCharSequence(Notification.EXTRA_TITLE_BIG))
+        add(extras.getCharSequence(Notification.EXTRA_TEXT))
+        add(extras.getCharSequence(Notification.EXTRA_BIG_TEXT))
+        add(extras.getCharSequence(Notification.EXTRA_SUB_TEXT))
+        add(extras.getCharSequence(Notification.EXTRA_SUMMARY_TEXT))
+        add(extras.getCharSequence(Notification.EXTRA_INFO_TEXT))
+        add(sbn.notification.tickerText)
+        extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)?.forEach { add(it) }
+        extras.getParcelableArray(Notification.EXTRA_MESSAGES)?.forEach { item ->
+            val bundle = item as? Bundle ?: return@forEach
+            add(bundle.getCharSequence("sender"))
+            add(bundle.getCharSequence("text"))
+        }
+        add(resolveAppLabel(sbn.packageName))
+        add(sbn.packageName)
+
+        return pieces.distinct().joinToString(separator = "\n")
     }
 
     private fun extractTitle(sbn: StatusBarNotification): String {
         val extras = sbn.notification.extras
-        return extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
+        val candidates = listOf(
+            extras.getCharSequence(Notification.EXTRA_TITLE)?.toString(),
+            extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)?.toString(),
+            extras.getCharSequence(Notification.EXTRA_TITLE_BIG)?.toString(),
+            resolveAppLabel(sbn.packageName),
+        )
+        return candidates.firstOrNull { !it.isNullOrBlank() }.orEmpty()
     }
+
+    private fun extractDisplayText(sbn: StatusBarNotification): String {
+        val extras = sbn.notification.extras
+        val candidates = buildList {
+            add(extras.getCharSequence(Notification.EXTRA_TEXT)?.toString())
+            add(extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString())
+            add(extras.getCharSequence(Notification.EXTRA_SUMMARY_TEXT)?.toString())
+            add(extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString())
+            extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)?.forEach { add(it.toString()) }
+            extras.getParcelableArray(Notification.EXTRA_MESSAGES)?.forEach { item ->
+                val bundle = item as? Bundle ?: return@forEach
+                val sender = bundle.getCharSequence("sender")?.toString().orEmpty().trim()
+                val text = bundle.getCharSequence("text")?.toString().orEmpty().trim()
+                if (text.isNotBlank()) {
+                    add(if (sender.isNotBlank()) "$sender: $text" else text)
+                }
+            }
+        }
+            .mapNotNull { it?.trim() }
+            .filter { it.isNotBlank() }
+            .distinct()
+        return candidates.joinToString(" | ").ifBlank { buildNotificationBlob(sbn) }
+    }
+
+    private fun resolveAppLabel(packageName: String): String =
+        runCatching {
+            val appInfo = packageManager.getApplicationInfo(packageName, 0)
+            packageManager.getApplicationLabel(appInfo).toString()
+        }.getOrDefault(packageName)
 
     private fun recordListenerDiagnostic(event: String, packageName: String = "") {
         getSharedPreferences(DIAG_PREF, MODE_PRIVATE)

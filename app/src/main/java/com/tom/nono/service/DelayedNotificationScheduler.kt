@@ -88,6 +88,42 @@ object DelayedNotificationScheduler {
         }
     }
 
+    fun cancel(context: Context, noticeId: String) {
+        val requestCode = noticeId.toIntOrNull() ?: return
+        val intent = Intent(context, DelayedNotificationReceiver::class.java)
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            requestCode,
+            intent,
+            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
+        ) ?: return
+        val alarmManager = context.getSystemService(AlarmManager::class.java)
+        alarmManager.cancel(pendingIntent)
+        pendingIntent.cancel()
+    }
+
+    fun flushDueNotices(context: Context, nowMillis: Long = System.currentTimeMillis()) {
+        val store = DelayedNoticeStore(context)
+        val dueNotices = store.loadNotices().filter { it.scheduledAtMillis <= nowMillis }
+        dueNotices.forEach { notice ->
+            val requestCode = notice.id.toIntOrNull() ?: notice.id.hashCode().absoluteValue
+            val notified = DelayedNotificationReceiver.notifyReminder(
+                context = context,
+                title = notice.title,
+                text = notice.text,
+                appName = notice.appName,
+                requestCode = requestCode,
+            )
+            if (notified) {
+                store.removeNotice(notice.id)
+                cancel(context, notice.id)
+            }
+        }
+    }
+
+    fun hasPendingNotices(context: Context): Boolean =
+        DelayedNoticeStore(context).loadNotices().isNotEmpty()
+
     private fun nextTriggerAtMillis(
         context: Context,
         remindAtMinutes: Int,
