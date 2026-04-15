@@ -558,20 +558,22 @@ private fun AddRuleTab(
                                     showAllApps = false
                                 },
                             )
-                        } else {
-                            Button(onClick = { showAllApps = !showAllApps }, modifier = Modifier.fillMaxWidth()) {
-                                Text(if (showAllApps) "\u6536\u8d77\u5168\u90e8\u5e94\u7528" else "\u5c55\u5f00\u5168\u90e8\u5e94\u7528")
-                            }
-                            if (showAllApps) {
-                                AppListCard(
-                                    apps = installedApps,
-                                    emptyText = "\u6ca1\u6709\u8bfb\u53d6\u5230\u5e94\u7528\u5217\u8868\u3002",
-                                    onSelect = { app ->
-                                        appName = app.label
-                                        packageName = app.packageName
-                                    },
-                                )
-                            }
+                        }
+                    }
+
+                    if (searchQuery.isBlank()) {
+                        Button(onClick = { showAllApps = !showAllApps }, modifier = Modifier.fillMaxWidth()) {
+                            Text(if (showAllApps) "\u6536\u8d77\u5168\u90e8\u5e94\u7528" else "\u5c55\u5f00\u5168\u90e8\u5e94\u7528")
+                        }
+                        if (showAllApps) {
+                            AppListCard(
+                                apps = installedApps,
+                                emptyText = "\u6ca1\u6709\u8bfb\u53d6\u5230\u5e94\u7528\u5217\u8868\u3002",
+                                onSelect = { app ->
+                                    appName = app.label
+                                    packageName = app.packageName
+                                },
+                            )
                         }
                     }
 
@@ -1378,27 +1380,59 @@ private fun RuleEditorCard(
 
 private fun loadInstalledApps(context: Context): List<InstalledAppInfo> {
     val packageManager = context.packageManager
-    val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        PackageManager.ApplicationInfoFlags.of(
-            (
-                PackageManager.MATCH_DISABLED_COMPONENTS.toLong() or
-                    PackageManager.MATCH_DISABLED_UNTIL_USED_COMPONENTS.toLong() or
-                    PackageManager.MATCH_UNINSTALLED_PACKAGES.toLong()
-                ),
-        )
-    } else {
-        null
+    val safeFlagsLong =
+        PackageManager.MATCH_DISABLED_COMPONENTS.toLong() or
+            PackageManager.MATCH_DISABLED_UNTIL_USED_COMPONENTS.toLong()
+
+    fun installedApplicationsByFlags(flagsLong: Long): List<ApplicationInfo> = runCatching {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            packageManager.getInstalledApplications(PackageManager.ApplicationInfoFlags.of(flagsLong))
+        } else {
+            @Suppress("DEPRECATION")
+            packageManager.getInstalledApplications(flagsLong.toInt())
+        }
+    }.getOrDefault(emptyList())
+
+    fun packageInfosByFlags(flagsLong: Long): List<ApplicationInfo> = runCatching {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            packageManager.getInstalledPackages(PackageManager.PackageInfoFlags.of(flagsLong))
+                .mapNotNull { it.applicationInfo }
+        } else {
+            @Suppress("DEPRECATION")
+            packageManager.getInstalledPackages(flagsLong.toInt())
+                .mapNotNull { it.applicationInfo }
+        }
+    }.getOrDefault(emptyList())
+
+    val byAppApi = installedApplicationsByFlags(safeFlagsLong).ifEmpty { installedApplicationsByFlags(0L) }
+    val byPkgApi = packageInfosByFlags(safeFlagsLong).ifEmpty { packageInfosByFlags(0L) }
+
+    val launcherIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+    val launcherPackageNames = runCatching {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            packageManager.queryIntentActivities(
+                launcherIntent,
+                PackageManager.ResolveInfoFlags.of(0L),
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            packageManager.queryIntentActivities(launcherIntent, 0)
+        }
+    }.getOrDefault(emptyList()).map { it.activityInfo.packageName }.distinct()
+
+    val byLauncher = launcherPackageNames.mapNotNull { pkg ->
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                packageManager.getApplicationInfo(pkg, PackageManager.ApplicationInfoFlags.of(0L))
+            } else {
+                @Suppress("DEPRECATION")
+                packageManager.getApplicationInfo(pkg, 0)
+            }
+        }.getOrNull()
     }
-    val installedApplications = if (flags != null) {
-        packageManager.getInstalledApplications(flags)
-    } else {
-        @Suppress("DEPRECATION")
-        packageManager.getInstalledApplications(
-            PackageManager.MATCH_DISABLED_COMPONENTS or
-                PackageManager.MATCH_DISABLED_UNTIL_USED_COMPONENTS or
-                PackageManager.MATCH_UNINSTALLED_PACKAGES,
-        )
-    }
+
+    val installedApplications = (byAppApi + byPkgApi + byLauncher).distinctBy { it.packageName }
+
     return installedApplications
         .asSequence()
         .map { app ->
