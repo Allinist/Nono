@@ -36,6 +36,8 @@ object DelayedNotificationScheduler {
             putExtra(DelayedNotificationReceiver.EXTRA_TITLE, title)
             putExtra(DelayedNotificationReceiver.EXTRA_TEXT, text)
             putExtra(DelayedNotificationReceiver.EXTRA_APP_NAME, appName)
+            putExtra(DelayedNotificationReceiver.EXTRA_PACKAGE_NAME, packageName)
+            putExtra(DelayedNotificationReceiver.EXTRA_ORIGINAL_CONTENT_INTENT, sbn.notification.contentIntent)
             putExtra(DelayedNotificationReceiver.EXTRA_REQUEST_CODE, requestCode)
             putExtra(DelayedNotificationReceiver.EXTRA_NOTICE_ID, requestCode.toString())
         }
@@ -49,6 +51,7 @@ object DelayedNotificationScheduler {
                 text = text,
                 scheduledAtMillis = scheduledAtMillis,
                 createdAtMillis = System.currentTimeMillis(),
+                notifyEnabled = true,
             ),
         )
 
@@ -104,7 +107,7 @@ object DelayedNotificationScheduler {
 
     fun flushDueNotices(context: Context, nowMillis: Long = System.currentTimeMillis()) {
         val store = DelayedNoticeStore(context)
-        val dueNotices = store.loadNotices().filter { it.scheduledAtMillis <= nowMillis }
+        val dueNotices = store.loadNotices().filter { it.notifyEnabled && it.scheduledAtMillis <= nowMillis }
         dueNotices.forEach { notice ->
             val requestCode = notice.id.toIntOrNull() ?: notice.id.hashCode().absoluteValue
             val notified = DelayedNotificationReceiver.notifyReminder(
@@ -112,6 +115,8 @@ object DelayedNotificationScheduler {
                 title = notice.title,
                 text = notice.text,
                 appName = notice.appName,
+                packageName = notice.packageName,
+                originalContentIntent = null,
                 requestCode = requestCode,
             )
             if (notified) {
@@ -122,7 +127,32 @@ object DelayedNotificationScheduler {
     }
 
     fun hasPendingNotices(context: Context): Boolean =
-        DelayedNoticeStore(context).loadNotices().isNotEmpty()
+        DelayedNoticeStore(context).loadNotices().any { it.notifyEnabled }
+
+    fun collectOnly(
+        context: Context,
+        sbn: StatusBarNotification,
+        ruleId: String,
+        appName: String,
+        packageName: String,
+        title: String,
+        text: String,
+    ) {
+        val requestCode = (sbn.key.hashCode() + sbn.postTime.hashCode()).absoluteValue
+        DelayedNoticeStore(context).addNotice(
+            DelayedNotice(
+                id = requestCode.toString(),
+                ruleId = ruleId,
+                appName = appName,
+                packageName = packageName,
+                title = title,
+                text = text,
+                scheduledAtMillis = System.currentTimeMillis(),
+                createdAtMillis = System.currentTimeMillis(),
+                notifyEnabled = false,
+            ),
+        )
+    }
 
     private fun nextTriggerAtMillis(
         context: Context,

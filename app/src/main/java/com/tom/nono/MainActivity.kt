@@ -95,6 +95,7 @@ import com.tom.nono.data.RuleMode
 import com.tom.nono.data.RuleStore
 import com.tom.nono.data.lastSyncLabel
 import com.tom.nono.service.AppNotificationGateService
+import com.tom.nono.service.DelayedNotificationReceiver
 import com.tom.nono.service.DelayedNotificationScheduler
 import com.tom.nono.service.ListenerKeepAliveService
 import java.text.SimpleDateFormat
@@ -288,6 +289,14 @@ private fun NonoApp() {
                     )
                     NonoTab.Notifications -> NotificationsTab(
                         notices = delayedNotices,
+                        onOpenNotice = { notice ->
+                            val intent = DelayedNotificationReceiver.buildFallbackLaunchIntent(context, notice.packageName)
+                            if (intent != null) {
+                                context.startActivity(intent)
+                            } else {
+                                toast(context, "无法打开对应应用")
+                            }
+                        },
                         onDeleteNotice = { notice ->
                             DelayedNotificationScheduler.cancel(context, notice.id)
                             delayedNoticeStore.removeNotice(notice.id)
@@ -454,6 +463,7 @@ private fun RulesTab(
 @Composable
 private fun NotificationsTab(
     notices: List<DelayedNotice>,
+    onOpenNotice: (DelayedNotice) -> Unit,
     onDeleteNotice: (DelayedNotice) -> Unit,
     onDeleteGroup: (List<String>) -> Unit,
     modifier: Modifier = Modifier,
@@ -517,15 +527,24 @@ private fun NotificationsTab(
                             if (expanded) {
                                 Spacer(modifier = Modifier.height(10.dp))
                                 groupNotices.forEach { notice ->
+                                    val displayTitle = DelayedNotificationReceiver.buildDisplayTitle(
+                                        title = notice.title,
+                                        appName = notice.appName,
+                                    )
+                                    val displayText = DelayedNotificationReceiver.buildDisplayText(notice.text).take(120)
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .padding(vertical = 6.dp),
                                         verticalAlignment = Alignment.Top,
                                     ) {
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(notice.title.ifBlank { "\u5ef6\u540e\u63d0\u9192" }, fontWeight = FontWeight.SemiBold)
-                                            Text(notice.text.take(120), style = MaterialTheme.typography.bodySmall)
+                                        Column(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .clickable { onOpenNotice(notice) },
+                                        ) {
+                                            Text(displayTitle, fontWeight = FontWeight.SemiBold)
+                                            Text(displayText, style = MaterialTheme.typography.bodySmall)
                                         }
                                         IconButton(onClick = { onDeleteNotice(notice) }) {
                                             Icon(
@@ -1221,6 +1240,7 @@ private fun ModeSelector(
             FilterChip(selected = selectedMode == RuleMode.BLOCK, onClick = { onModeChange(RuleMode.BLOCK) }, label = { Text("\u5c4f\u853d\u901a\u77e5") })
             FilterChip(selected = selectedMode == RuleMode.ALLOW, onClick = { onModeChange(RuleMode.ALLOW) }, label = { Text("\u5141\u8bb8\u901a\u77e5") })
             FilterChip(selected = selectedMode == RuleMode.DELAY, onClick = { onModeChange(RuleMode.DELAY) }, label = { Text("\u5ef6\u540e\u901a\u77e5") })
+            FilterChip(selected = selectedMode == RuleMode.COLLECT_ONLY, onClick = { onModeChange(RuleMode.COLLECT_ONLY) }, label = { Text("\u4ec5\u6536\u96c6") })
         }
     }
 }
@@ -1369,6 +1389,7 @@ private fun RuleEditorCard(
                                 RuleMode.BLOCK -> "\u5c4f\u853d"
                                 RuleMode.ALLOW -> "\u5141\u8bb8"
                                 RuleMode.DELAY -> "\u5ef6\u540e"
+                                RuleMode.COLLECT_ONLY -> "\u4ec5\u6536\u96c6"
                             },
                         )
                     },
@@ -1446,6 +1467,7 @@ private fun RuleEditorCard(
                 RuleMode.BLOCK -> "\u5c4f\u853d"
                 RuleMode.ALLOW -> "\u5141\u8bb8"
                 RuleMode.DELAY -> "\u63d0\u9192 ${previewRule.remindAtMinutes.toHourMinute()}"
+                RuleMode.COLLECT_ONLY -> "\u4ec5\u6536\u96c6"
             }
             val now = LocalDateTime.now()
             val context = androidx.compose.ui.platform.LocalContext.current
@@ -1683,6 +1705,7 @@ private fun NotificationRule.currentTimeStatusLabel(
         RuleMode.BLOCK -> "\u5c4f\u853d"
         RuleMode.ALLOW -> "\u5141\u8bb8"
         RuleMode.DELAY -> "\u5ef6\u540e"
+        RuleMode.COLLECT_ONLY -> "\u4ec5\u6536\u96c6"
     }
 }
 
