@@ -42,7 +42,7 @@ class DelayedNoticeStore(context: Context) {
     private fun save(notices: List<DelayedNotice>) {
         val array = JSONArray()
         notices.sortedBy { it.scheduledAtMillis }.forEach { array.put(it.toJson()) }
-        prefs.edit().putString(KEY_NOTICES, array.toString()).apply()
+        prefs.edit().putString(KEY_NOTICES, array.toString()).commit()
     }
 
     companion object {

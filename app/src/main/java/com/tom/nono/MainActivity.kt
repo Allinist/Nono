@@ -8,9 +8,12 @@ import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
 import android.provider.Settings
+import android.service.notification.NotificationListenerService
 import android.widget.ImageView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -91,6 +94,8 @@ import com.tom.nono.data.RuleDayMode
 import com.tom.nono.data.RuleMode
 import com.tom.nono.data.RuleStore
 import com.tom.nono.data.lastSyncLabel
+import com.tom.nono.service.AppNotificationGateService
+import com.tom.nono.service.ListenerKeepAliveService
 import java.text.SimpleDateFormat
 import java.time.DayOfWeek
 import java.time.LocalDateTime
@@ -98,6 +103,7 @@ import java.time.LocalDate
 import java.util.Date
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -105,7 +111,22 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        startListenerKeepAliveService()
         setContent { NonoApp() }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        requestRebindNotificationListener(this)
+    }
+
+    private fun startListenerKeepAliveService() {
+        val intent = Intent(this, ListenerKeepAliveService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(intent)
+        } else {
+            startService(intent)
+        }
     }
 }
 
@@ -172,6 +193,16 @@ private fun NonoApp() {
 
     LaunchedEffect(Unit) {
         listenerEnabled = isNotificationListenerEnabled(context)
+        if (listenerEnabled) {
+            requestRebindNotificationListener(context)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            delayedNotices = delayedNoticeStore.loadNotices()
+            delay(800)
+        }
     }
 
     MaterialTheme {
@@ -264,6 +295,20 @@ private fun NonoApp() {
                         manualOverrides = manualOverrides,
                         calendarStatus = calendarStatus,
                         onRefresh = { listenerEnabled = isNotificationListenerEnabled(context) },
+                        onRebindListener = {
+                            requestRebindNotificationListener(context)
+                            listenerEnabled = isNotificationListenerEnabled(context)
+                            toast(context, "\u5df2\u8bf7\u6c42\u91cd\u8fde\u901a\u77e5\u76d1\u542c")
+                        },
+                        onResetListenerComponent = {
+                            resetNotificationListenerComponent(context)
+                            requestRebindNotificationListener(context)
+                            listenerEnabled = isNotificationListenerEnabled(context)
+                            toast(context, "\u5df2\u91cd\u7f6e\u7ec4\u4ef6\u7ed1\u5b9a\u5e76\u8bf7\u6c42\u91cd\u8fde")
+                        },
+                        onRequestIgnoreBatteryOptimization = {
+                            requestIgnoreBatteryOptimization(context)
+                        },
                         onRequestPostNotificationPermission = {
                             if (hasPostNotificationPermission(context)) {
                                 toast(context, "\u901a\u77e5\u53d1\u9001\u6743\u9650\u5df2\u5f00\u542f")
@@ -665,6 +710,9 @@ private fun SettingsTab(
     manualOverrides: List<ManualDayOverride>,
     calendarStatus: String,
     onRefresh: () -> Unit,
+    onRebindListener: () -> Unit,
+    onResetListenerComponent: () -> Unit,
+    onRequestIgnoreBatteryOptimization: () -> Unit,
     onRequestPostNotificationPermission: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenPolicySettings: () -> Unit,
@@ -682,6 +730,18 @@ private fun SettingsTab(
     val canScheduleExactAlarms =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
             context.getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
+    val ignoringBatteryOptimizations =
+        (context.getSystemService(PowerManager::class.java))
+            .isIgnoringBatteryOptimizations(context.packageName)
+    var listenerDiagTick by remember { mutableStateOf(0) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(1_500)
+            listenerDiagTick++
+        }
+    }
+    val listenerDiagnostic = remember(listenerDiagTick) { loadListenerDiagnostic(context) }
+    val listenerTechStatus = remember(listenerDiagTick) { notificationListenerTechStatus(context) }
 
     var overrideDateText by rememberSaveable { mutableStateOf("") }
     var overrideNoteText by rememberSaveable { mutableStateOf("") }
@@ -718,6 +778,12 @@ private fun SettingsTab(
                         Button(onClick = onOpenSettings, modifier = Modifier.weight(1f)) { Text("\u6253\u5f00\u7cfb\u7edf\u8bbe\u7f6e") }
                         Button(onClick = onRefresh, modifier = Modifier.weight(1f)) { Text("\u5237\u65b0\u72b6\u6001") }
                     }
+                    Button(onClick = onRebindListener, modifier = Modifier.fillMaxWidth()) {
+                        Text("\u91cd\u8fde\u901a\u77e5\u76d1\u542c\u670d\u52a1")
+                    }
+                    Button(onClick = onResetListenerComponent, modifier = Modifier.fillMaxWidth()) {
+                        Text("\u91cd\u7f6e\u76d1\u542c\u7ec4\u4ef6\u7ed1\u5b9a")
+                    }
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !hasPostNotificationPermission) {
                         Button(onClick = onRequestPostNotificationPermission, modifier = Modifier.fillMaxWidth()) {
                             Text("\u7533\u8bf7\u901a\u77e5\u53d1\u9001\u6743\u9650")
@@ -729,6 +795,27 @@ private fun SettingsTab(
                     )
                     Text(
                         text = "\u7cbe\u786e\u95f9\u949f: " + if (canScheduleExactAlarms) "\u53ef\u7528" else "\u53d7\u9650\uff08\u5ef6\u540e\u63d0\u9192\u53ef\u80fd\u4e0d\u51c6\u65f6\uff09",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    Text(
+                        text = "\u7535\u6c60\u4f18\u5316\u8c41\u514d: " + if (ignoringBatteryOptimizations) "\u5df2\u5f00\u542f" else "\u672a\u5f00\u542f\uff08\u79bb\u5f00 App \u540e\u53ef\u80fd\u88ab\u9650\u5236\uff09",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    if (!ignoringBatteryOptimizations) {
+                        Button(onClick = onRequestIgnoreBatteryOptimization, modifier = Modifier.fillMaxWidth()) {
+                            Text("\u7533\u8bf7\u5ffd\u7565\u7535\u6c60\u4f18\u5316")
+                        }
+                    }
+                    Text(
+                        text = if (listenerDiagnostic.isNotBlank()) {
+                            "\u76d1\u542c\u8bca\u65ad: $listenerDiagnostic"
+                        } else {
+                            "\u76d1\u542c\u8bca\u65ad: \u5c1a\u672a\u6536\u5230\u76d1\u542c\u56de\u8c03\uff08\u5982\u679c\u5df2\u89e6\u53d1\u901a\u77e5\uff0c\u8bf7\u91cd\u8fde\u76d1\u542c\u670d\u52a1\u540e\u518d\u89c2\u5bdf\uff09"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    Text(
+                        text = "\u76d1\u542c\u5e95\u5c42\u72b6\u6001: $listenerTechStatus",
                         style = MaterialTheme.typography.bodySmall,
                     )
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !canScheduleExactAlarms) {
@@ -1460,6 +1547,66 @@ private fun isNotificationListenerEnabled(context: Context): Boolean {
     val expected = ComponentName(context, com.tom.nono.service.AppNotificationGateService::class.java)
         .flattenToString()
     return flat?.contains(expected) == true
+}
+
+private fun requestRebindNotificationListener(context: Context) {
+    val component = ComponentName(context, com.tom.nono.service.AppNotificationGateService::class.java)
+    runCatching { NotificationListenerService.requestRebind(component) }
+}
+
+private fun resetNotificationListenerComponent(context: Context) {
+    val component = ComponentName(context, com.tom.nono.service.AppNotificationGateService::class.java)
+    val pm = context.packageManager
+    runCatching {
+        pm.setComponentEnabledSetting(
+            component,
+            PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+            PackageManager.DONT_KILL_APP,
+        )
+        pm.setComponentEnabledSetting(
+            component,
+            PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+            PackageManager.DONT_KILL_APP,
+        )
+    }
+}
+
+private fun notificationListenerTechStatus(context: Context): String {
+    val component = ComponentName(context, com.tom.nono.service.AppNotificationGateService::class.java)
+    val expected = component.flattenToString()
+    val enabledRaw = Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners").orEmpty()
+    val enabledContains = enabledRaw.contains(expected)
+    val componentState = context.packageManager.getComponentEnabledSetting(component)
+    val stateLabel = when (componentState) {
+        PackageManager.COMPONENT_ENABLED_STATE_ENABLED -> "enabled"
+        PackageManager.COMPONENT_ENABLED_STATE_DISABLED -> "disabled"
+        PackageManager.COMPONENT_ENABLED_STATE_DISABLED_USER -> "disabled_user"
+        PackageManager.COMPONENT_ENABLED_STATE_DISABLED_UNTIL_USED -> "disabled_until_used"
+        else -> "default"
+    }
+    return "contains=$enabledContains, component=$stateLabel"
+}
+
+private fun requestIgnoreBatteryOptimization(context: Context) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
+    val powerManager = context.getSystemService(PowerManager::class.java)
+    if (powerManager.isIgnoringBatteryOptimizations(context.packageName)) return
+    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+        data = Uri.parse("package:${context.packageName}")
+    }
+    context.startActivity(intent)
+}
+
+private fun loadListenerDiagnostic(context: Context): String {
+    val prefs = context.getSharedPreferences(AppNotificationGateService.DIAG_PREF, Context.MODE_PRIVATE)
+    val ts = prefs.getLong(AppNotificationGateService.DIAG_LAST_TS, 0L)
+    val event = prefs.getString(AppNotificationGateService.DIAG_LAST_EVENT, "").orEmpty()
+    val pkg = prefs.getString(AppNotificationGateService.DIAG_LAST_PACKAGE, "").orEmpty()
+    val pid = prefs.getString(AppNotificationGateService.DIAG_PROCESS, "").orEmpty()
+    if (ts <= 0L && event.isBlank()) return ""
+    val time = SimpleDateFormat("MM-dd HH:mm:ss", Locale.CHINA).format(Date(ts))
+    val base = if (pkg.isNotBlank()) "$time | $event | $pkg" else "$time | $event"
+    return if (pid.isNotBlank()) "$base | pid=$pid" else base
 }
 
 private fun hasPostNotificationPermission(context: Context): Boolean =
