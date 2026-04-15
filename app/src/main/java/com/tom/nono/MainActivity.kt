@@ -469,9 +469,16 @@ private fun NotificationsTab(
     modifier: Modifier = Modifier,
 ) {
     val expandedGroups = remember { mutableStateListOf<String>() }
-    val grouped = notices
+    val delayedGrouped = notices
+        .asSequence()
+        .filter { it.notifyEnabled }
         .sortedBy { it.scheduledAtMillis }
         .groupBy { notice -> "${formatNoticeTime(notice.scheduledAtMillis)}|${notice.appName}" }
+    val collectedGrouped = notices
+        .asSequence()
+        .filter { !it.notifyEnabled }
+        .sortedByDescending { it.createdAtMillis }
+        .groupBy { notice -> "${notice.appName}|${notice.packageName}" }
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -485,16 +492,17 @@ private fun NotificationsTab(
             )
         }
 
-        if (grouped.isEmpty()) {
+        if (delayedGrouped.isEmpty()) {
             item {
                 EmptyStateCard("\u6682\u65f6\u6ca1\u6709\u5ef6\u540e\u4e2d\u7684\u901a\u77e5\u3002")
             }
         } else {
-            grouped.forEach { (groupKey, groupNotices) ->
+            delayedGrouped.forEach { (groupKey, groupNotices) ->
                 val timeLabel = formatNoticeTime(groupNotices.first().scheduledAtMillis)
                 val appLabel = groupNotices.first().appName
-                item(key = groupKey) {
-                    val expanded = groupKey in expandedGroups
+                val uiKey = "delay|$groupKey"
+                item(key = uiKey) {
+                    val expanded = uiKey in expandedGroups
                     Card(
                         colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F7F4)),
                         shape = RoundedCornerShape(22.dp),
@@ -505,13 +513,96 @@ private fun NotificationsTab(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable {
-                                        if (expanded) expandedGroups.remove(groupKey) else expandedGroups.add(groupKey)
+                                        if (expanded) expandedGroups.remove(uiKey) else expandedGroups.add(uiKey)
                                     },
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(appLabel, fontWeight = FontWeight.SemiBold)
                                     Text("$timeLabel · ${groupNotices.size} \u6761", style = MaterialTheme.typography.bodySmall)
+                                }
+                                IconButton(onClick = { onDeleteGroup(groupNotices.map { it.id }) }) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Delete,
+                                        contentDescription = "\u5220\u9664\u6574\u7ec4",
+                                    )
+                                }
+                                Icon(
+                                    imageVector = if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                                    contentDescription = null,
+                                )
+                            }
+                            if (expanded) {
+                                Spacer(modifier = Modifier.height(10.dp))
+                                groupNotices.forEach { notice ->
+                                    val displayTitle = DelayedNotificationReceiver.buildDisplayTitle(
+                                        title = notice.title,
+                                        appName = notice.appName,
+                                    )
+                                    val displayText = DelayedNotificationReceiver.buildDisplayText(notice.text).take(120)
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 6.dp),
+                                        verticalAlignment = Alignment.Top,
+                                    ) {
+                                        Column(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .clickable { onOpenNotice(notice) },
+                                        ) {
+                                            Text(displayTitle, fontWeight = FontWeight.SemiBold)
+                                            Text(displayText, style = MaterialTheme.typography.bodySmall)
+                                        }
+                                        IconButton(onClick = { onDeleteNotice(notice) }) {
+                                            Icon(
+                                                imageVector = Icons.Outlined.Delete,
+                                                contentDescription = "\u5220\u9664",
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        item {
+            IntroCard(
+                title = "\u6536\u96c6\u901a\u77e5",
+                subtitle = "\u4ec5\u6309\u5e94\u7528\u5408\u5e76\u663e\u793a\uff0c\u4e0d\u4f1a\u518d\u6b21\u63a8\u9001\u3002",
+            )
+        }
+
+        if (collectedGrouped.isEmpty()) {
+            item {
+                EmptyStateCard("\u6682\u65f6\u6ca1\u6709\u5df2\u6536\u96c6\u7684\u901a\u77e5\u3002")
+            }
+        } else {
+            collectedGrouped.forEach { (groupKey, groupNotices) ->
+                val appLabel = groupNotices.first().appName.ifBlank { groupNotices.first().packageName }
+                val uiKey = "collect|$groupKey"
+                item(key = uiKey) {
+                    val expanded = uiKey in expandedGroups
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F7F4)),
+                        shape = RoundedCornerShape(22.dp),
+                        modifier = Modifier.animateContentSize(),
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        if (expanded) expandedGroups.remove(uiKey) else expandedGroups.add(uiKey)
+                                    },
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(appLabel, fontWeight = FontWeight.SemiBold)
+                                    Text("${groupNotices.size} \u6761", style = MaterialTheme.typography.bodySmall)
                                 }
                                 IconButton(onClick = { onDeleteGroup(groupNotices.map { it.id }) }) {
                                     Icon(
@@ -577,6 +668,7 @@ private fun AddRuleTab(
     var note by rememberSaveable { mutableStateOf("") }
     var startText by rememberSaveable { mutableStateOf("09:00") }
     var endText by rememberSaveable { mutableStateOf("18:00") }
+    var allDay by rememberSaveable { mutableStateOf(false) }
     var remindAtText by rememberSaveable { mutableStateOf("09:00") }
     var targetsText by rememberSaveable { mutableStateOf("") }
     var enabled by rememberSaveable { mutableStateOf(true) }
@@ -696,6 +788,8 @@ private fun AddRuleTab(
                         onStartTextChange = { startText = it },
                         endText = endText,
                         onEndTextChange = { endText = it },
+                        allDay = allDay,
+                        onAllDayChange = { allDay = it },
                         selectedDays = selectedDays,
                         onSelectedDaysChange = { selectedDays = it },
                         blockAll = blockAll,
@@ -717,6 +811,7 @@ private fun AddRuleTab(
                                     soundMode = soundMode,
                                     startMinutes = startText.toMinutesOrDefault(9 * 60),
                                     endMinutes = endText.toMinutesOrDefault(18 * 60),
+                                    allDay = allDay,
                                     dayMode = dayMode,
                                     activeDays = selectedDays,
                                     targets = if (blockAll) listOf("*") else splitTargets(targetsText),
@@ -730,6 +825,7 @@ private fun AddRuleTab(
                             note = ""
                             startText = "09:00"
                             endText = "18:00"
+                            allDay = false
                             remindAtText = "09:00"
                             targetsText = ""
                             enabled = true
@@ -1142,6 +1238,8 @@ private fun RuleFormFields(
     onStartTextChange: (String) -> Unit,
     endText: String,
     onEndTextChange: (String) -> Unit,
+    allDay: Boolean,
+    onAllDayChange: (Boolean) -> Unit,
     selectedDays: Set<DayOfWeek>,
     onSelectedDaysChange: (Set<DayOfWeek>) -> Unit,
     blockAll: Boolean,
@@ -1168,9 +1266,17 @@ private fun RuleFormFields(
     }
     SoundModeSelector(selectedMode = soundMode, onModeChange = onSoundModeChange)
 
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        OutlinedTextField(value = startText, onValueChange = onStartTextChange, modifier = Modifier.weight(1f), singleLine = true, label = { Text("\u5f00\u59cb\u65f6\u95f4") }, placeholder = { Text("09:00") })
-        OutlinedTextField(value = endText, onValueChange = onEndTextChange, modifier = Modifier.weight(1f), singleLine = true, label = { Text("\u7ed3\u675f\u65f6\u95f4") }, placeholder = { Text("18:00") })
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Switch(checked = allDay, onCheckedChange = onAllDayChange)
+        Spacer(modifier = Modifier.width(10.dp))
+        Text("\u5168\u5929", fontWeight = FontWeight.SemiBold)
+    }
+
+    if (!allDay) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedTextField(value = startText, onValueChange = onStartTextChange, modifier = Modifier.weight(1f), singleLine = true, label = { Text("\u5f00\u59cb\u65f6\u95f4") }, placeholder = { Text("09:00") })
+            OutlinedTextField(value = endText, onValueChange = onEndTextChange, modifier = Modifier.weight(1f), singleLine = true, label = { Text("\u7ed3\u675f\u65f6\u95f4") }, placeholder = { Text("18:00") })
+        }
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1237,10 +1343,10 @@ private fun ModeSelector(
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("\u901a\u77e5\u6a21\u5f0f", fontWeight = FontWeight.SemiBold)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(selected = selectedMode == RuleMode.BLOCK, onClick = { onModeChange(RuleMode.BLOCK) }, label = { Text("\u5c4f\u853d\u901a\u77e5") })
-            FilterChip(selected = selectedMode == RuleMode.ALLOW, onClick = { onModeChange(RuleMode.ALLOW) }, label = { Text("\u5141\u8bb8\u901a\u77e5") })
-            FilterChip(selected = selectedMode == RuleMode.DELAY, onClick = { onModeChange(RuleMode.DELAY) }, label = { Text("\u5ef6\u540e\u901a\u77e5") })
-            FilterChip(selected = selectedMode == RuleMode.COLLECT_ONLY, onClick = { onModeChange(RuleMode.COLLECT_ONLY) }, label = { Text("\u4ec5\u6536\u96c6") })
+            FilterChip(selected = selectedMode == RuleMode.BLOCK, onClick = { onModeChange(RuleMode.BLOCK) }, label = { Text("\u5c4f\u853d") })
+            FilterChip(selected = selectedMode == RuleMode.ALLOW, onClick = { onModeChange(RuleMode.ALLOW) }, label = { Text("\u5141\u8bb8") })
+            FilterChip(selected = selectedMode == RuleMode.DELAY, onClick = { onModeChange(RuleMode.DELAY) }, label = { Text("\u5ef6\u540e") })
+            FilterChip(selected = selectedMode == RuleMode.COLLECT_ONLY, onClick = { onModeChange(RuleMode.COLLECT_ONLY) }, label = { Text("\u6536\u96c6") })
         }
     }
 }
@@ -1328,6 +1434,7 @@ private fun RuleEditorCard(
     var dayMode by remember(rule.id) { mutableStateOf(rule.dayMode) }
     var startText by remember(rule.id) { mutableStateOf(rule.startMinutes.toHourMinute()) }
     var endText by remember(rule.id) { mutableStateOf(rule.endMinutes.toHourMinute()) }
+    var allDay by remember(rule.id) { mutableStateOf(rule.allDay) }
     var targetsText by remember(rule.id) { mutableStateOf(if (rule.targets == listOf("*")) "*" else rule.targets.joinToString("\n")) }
     var blockAll by remember(rule.id) { mutableStateOf(rule.targets == listOf("*")) }
     var selectedDays by remember(rule.id) { mutableStateOf(rule.activeDays) }
@@ -1349,6 +1456,7 @@ private fun RuleEditorCard(
                 soundMode = soundMode,
                 startMinutes = startText.toMinutesOrDefault(rule.startMinutes),
                 endMinutes = endText.toMinutesOrDefault(rule.endMinutes),
+                allDay = allDay,
                 dayMode = dayMode,
                 activeDays = selectedDays,
                 targets = resolvedTargets(),
@@ -1389,7 +1497,7 @@ private fun RuleEditorCard(
                                 RuleMode.BLOCK -> "\u5c4f\u853d"
                                 RuleMode.ALLOW -> "\u5141\u8bb8"
                                 RuleMode.DELAY -> "\u5ef6\u540e"
-                                RuleMode.COLLECT_ONLY -> "\u4ec5\u6536\u96c6"
+                                RuleMode.COLLECT_ONLY -> "\u6536\u96c6"
                             },
                         )
                     },
@@ -1458,6 +1566,7 @@ private fun RuleEditorCard(
                 soundMode = soundMode,
                 startMinutes = startText.toMinutesOrDefault(rule.startMinutes),
                 endMinutes = endText.toMinutesOrDefault(rule.endMinutes),
+                allDay = allDay,
                 dayMode = dayMode,
                 activeDays = selectedDays,
                 targets = resolvedTargets(),
@@ -1466,8 +1575,8 @@ private fun RuleEditorCard(
             val previewMode = when (previewRule.mode) {
                 RuleMode.BLOCK -> "\u5c4f\u853d"
                 RuleMode.ALLOW -> "\u5141\u8bb8"
-                RuleMode.DELAY -> "\u63d0\u9192 ${previewRule.remindAtMinutes.toHourMinute()}"
-                RuleMode.COLLECT_ONLY -> "\u4ec5\u6536\u96c6"
+                RuleMode.DELAY -> "\u5ef6\u540e ${previewRule.remindAtMinutes.toHourMinute()}"
+                RuleMode.COLLECT_ONLY -> "\u6536\u96c6"
             }
             val now = LocalDateTime.now()
             val context = androidx.compose.ui.platform.LocalContext.current
@@ -1503,6 +1612,8 @@ private fun RuleEditorCard(
                     onStartTextChange = { startText = it; persist() },
                     endText = endText,
                     onEndTextChange = { endText = it; persist() },
+                    allDay = allDay,
+                    onAllDayChange = { allDay = it; persist() },
                     selectedDays = selectedDays,
                     onSelectedDaysChange = { selectedDays = it; persist() },
                     blockAll = blockAll,
@@ -1705,7 +1816,7 @@ private fun NotificationRule.currentTimeStatusLabel(
         RuleMode.BLOCK -> "\u5c4f\u853d"
         RuleMode.ALLOW -> "\u5141\u8bb8"
         RuleMode.DELAY -> "\u5ef6\u540e"
-        RuleMode.COLLECT_ONLY -> "\u4ec5\u6536\u96c6"
+        RuleMode.COLLECT_ONLY -> "\u6536\u96c6"
     }
 }
 

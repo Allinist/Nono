@@ -36,6 +36,7 @@ data class NotificationRule(
     val soundMode: DeviceSoundMode = DeviceSoundMode.KEEP,
     val startMinutes: Int = 9 * 60,
     val endMinutes: Int = 18 * 60,
+    val allDay: Boolean = false,
     val dayMode: RuleDayMode = RuleDayMode.WORKDAY,
     val manualEnabled: Boolean = false,
     val activeDays: Set<DayOfWeek> = setOf(
@@ -49,12 +50,17 @@ data class NotificationRule(
 ) {
     fun normalizedTargets(): List<String> = targets.map { it.trim() }.filter { it.isNotEmpty() }
 
-    fun timeRangeLabel(): String = "%02d:%02d - %02d:%02d".format(
-        startMinutes / 60,
-        startMinutes % 60,
-        endMinutes / 60,
-        endMinutes % 60,
-    )
+    fun timeRangeLabel(): String =
+        if (allDay) {
+            "全天"
+        } else {
+            "%02d:%02d - %02d:%02d".format(
+                startMinutes / 60,
+                startMinutes % 60,
+                endMinutes / 60,
+                endMinutes % 60,
+            )
+        }
 
     fun dayLabel(): String = activeDays
         .sortedBy { it.value }
@@ -75,6 +81,7 @@ data class NotificationRule(
     }
 
     fun isInWorkingWindow(nowDay: DayOfWeek, nowTime: LocalTime): Boolean {
+        if (allDay) return true
         val nowMinutes = nowTime.hour * 60 + nowTime.minute
         return if (startMinutes <= endMinutes) {
             nowMinutes in startMinutes until endMinutes
