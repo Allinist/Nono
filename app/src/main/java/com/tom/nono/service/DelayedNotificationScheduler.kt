@@ -110,18 +110,32 @@ object DelayedNotificationScheduler {
         val dueNotices = store.loadNotices().filter { it.notifyEnabled && it.scheduledAtMillis <= nowMillis }
         dueNotices.forEach { notice ->
             val requestCode = notice.id.toIntOrNull() ?: notice.id.hashCode().absoluteValue
-            val notified = DelayedNotificationReceiver.notifyReminder(
-                context = context,
-                title = notice.title,
-                text = notice.text,
-                appName = notice.appName,
-                packageName = notice.packageName,
-                originalContentIntent = null,
-                requestCode = requestCode,
+            val alarmIntent = Intent(context, DelayedNotificationReceiver::class.java)
+            val existingAlarm = PendingIntent.getBroadcast(
+                context,
+                requestCode,
+                alarmIntent,
+                PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
             )
-            if (notified) {
-                store.removeNotice(notice.id)
-                cancel(context, notice.id)
+            val sentByOriginalAlarm = runCatching {
+                existingAlarm?.send()
+                existingAlarm != null
+            }.getOrDefault(false)
+
+            if (!sentByOriginalAlarm) {
+                val notified = DelayedNotificationReceiver.notifyReminder(
+                    context = context,
+                    title = notice.title,
+                    text = notice.text,
+                    appName = notice.appName,
+                    packageName = notice.packageName,
+                    originalContentIntent = null,
+                    requestCode = requestCode,
+                )
+                if (notified) {
+                    store.removeNotice(notice.id)
+                    cancel(context, notice.id)
+                }
             }
         }
     }

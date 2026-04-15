@@ -420,12 +420,12 @@ private fun RulesTab(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        item {
-            IntroCard(
-                title = "\u89c4\u5219\u603b\u89c8",
-                subtitle = "\u89c4\u5219\u9ed8\u8ba4\u6298\u53e0\u663e\u793a\uff0c\u5c55\u5f00\u540e\u53ef\u7f16\u8f91\u5907\u6ce8\u3001\u6a21\u5f0f\u3001\u65f6\u95f4\u548c\u5173\u952e\u5b57\u3002",
-            )
-        }
+//        item {
+//            IntroCard(
+//                title = "\u89c4\u5219",
+//                subtitle = "",
+//            )
+//        }
 
         if (rules.isEmpty()) {
             item {
@@ -485,12 +485,12 @@ private fun NotificationsTab(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        item {
-            IntroCard(
-                title = "\u5ef6\u540e\u901a\u77e5",
-                subtitle = "\u6309\u63d0\u9192\u65f6\u95f4\u548c\u5e94\u7528\u5206\u7ec4\u67e5\u770b\u7b49\u5f85\u88ab Nono \u91cd\u65b0\u53d1\u51fa\u7684\u901a\u77e5\u3002",
-            )
-        }
+//        item {
+//            IntroCard(
+//                title = "\u901a\u77e5",
+//                subtitle = "",
+//            )
+//        }
 
         if (delayedGrouped.isEmpty()) {
             item {
@@ -567,13 +567,6 @@ private fun NotificationsTab(
                     }
                 }
             }
-        }
-
-        item {
-            IntroCard(
-                title = "\u6536\u96c6\u901a\u77e5",
-                subtitle = "\u4ec5\u6309\u5e94\u7528\u5408\u5e76\u663e\u793a\uff0c\u4e0d\u4f1a\u518d\u6b21\u63a8\u9001\u3002",
-            )
         }
 
         if (collectedGrouped.isEmpty()) {
@@ -692,12 +685,12 @@ private fun AddRuleTab(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        item {
-            IntroCard(
-                title = "\u65b0\u589e\u914d\u7f6e",
-                subtitle = "\u652f\u6301\u641c\u7d22\u5e94\u7528\u540d\u548c\u5305\u540d\uff0c\u4e5f\u53ef\u4ee5\u5c55\u5f00\u5168\u90e8\u5df2\u5b89\u88c5\u5e94\u7528\u540e\u76f4\u63a5\u9009\u62e9\u3002",
-            )
-        }
+//        item {
+//            IntroCard(
+//                title = "\u914d\u7f6e",
+//                subtitle = "",
+//            )
+//        }
 
         item {
             Card(
@@ -897,12 +890,12 @@ private fun SettingsTab(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        item {
-            IntroCard(
-                title = "\u8bbe\u7f6e",
-                subtitle = "\u901a\u77e5\u6743\u9650\u3001\u5bfc\u5165\u5bfc\u51fa\uff0c\u4ee5\u53ca\u5b8c\u6574\u5e94\u7528\u5217\u8868\u7684\u83b7\u53d6\u8bf4\u660e\u90fd\u653e\u5728\u8fd9\u91cc\u3002",
-            )
-        }
+//        item {
+//                IntroCard(
+//                    title = "\u8bbe\u7f6e",
+//                    subtitle = "",
+//                )
+//            }
 
         item {
             Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F7F4)), shape = RoundedCornerShape(24.dp)) {
@@ -1137,8 +1130,10 @@ private fun IntroCard(
             )
             Spacer(modifier = Modifier.height(12.dp))
             Text(title, color = Color(0xFF1F2421), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(subtitle, color = Color(0xFF5D635F), style = MaterialTheme.typography.bodyMedium)
+            if (subtitle.isNotBlank()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(subtitle, color = Color(0xFF5D635F), style = MaterialTheme.typography.bodyMedium)
+            }
         }
     }
 }
