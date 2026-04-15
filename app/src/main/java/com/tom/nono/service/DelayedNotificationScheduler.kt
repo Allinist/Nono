@@ -39,6 +39,19 @@ object DelayedNotificationScheduler {
             putExtra(DelayedNotificationReceiver.EXTRA_REQUEST_CODE, requestCode)
             putExtra(DelayedNotificationReceiver.EXTRA_NOTICE_ID, requestCode.toString())
         }
+        DelayedNoticeStore(context).addNotice(
+            DelayedNotice(
+                id = requestCode.toString(),
+                ruleId = ruleId,
+                appName = appName,
+                packageName = packageName,
+                title = title,
+                text = text,
+                scheduledAtMillis = scheduledAtMillis,
+                createdAtMillis = System.currentTimeMillis(),
+            ),
+        )
+
         val pendingIntent = PendingIntent.getBroadcast(
             context,
             requestCode,
@@ -73,19 +86,6 @@ object DelayedNotificationScheduler {
                 pendingIntent,
             )
         }
-
-        DelayedNoticeStore(context).addNotice(
-            DelayedNotice(
-                id = requestCode.toString(),
-                ruleId = ruleId,
-                appName = appName,
-                packageName = packageName,
-                title = title,
-                text = text,
-                scheduledAtMillis = scheduledAtMillis,
-                createdAtMillis = System.currentTimeMillis(),
-            ),
-        )
     }
 
     private fun nextTriggerAtMillis(
