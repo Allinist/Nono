@@ -16,6 +16,7 @@ import com.tom.nono.data.RuleMode
 import com.tom.nono.data.RuleStore
 import java.time.LocalDateTime
 import java.util.Locale
+import kotlin.math.absoluteValue
 
 class AppNotificationGateService : NotificationListenerService() {
     private val mainHandler by lazy { Handler(Looper.getMainLooper()) }
@@ -105,7 +106,9 @@ class AppNotificationGateService : NotificationListenerService() {
         applySoundMode(selectedRule.soundMode)
 
         when (selectedRule.mode) {
-            RuleMode.ALLOW -> Unit
+            RuleMode.ALLOW -> {
+                emitObservedNotification(sbn, selectedRule.appName)
+            }
             RuleMode.BLOCK -> Unit
             RuleMode.DELAY -> {
                 DelayedNotificationScheduler.schedule(
@@ -134,6 +137,19 @@ class AppNotificationGateService : NotificationListenerService() {
                 )
             }
         }
+    }
+
+    private fun emitObservedNotification(sbn: StatusBarNotification, appName: String) {
+        val requestCode = (sbn.key.hashCode() + sbn.postTime.hashCode()).absoluteValue
+        DelayedNotificationReceiver.notifyReminder(
+            context = this,
+            title = extractTitle(sbn),
+            text = extractDisplayText(sbn),
+            appName = appName.ifBlank { resolveAppLabel(sbn.packageName) },
+            packageName = sbn.packageName,
+            originalContentIntent = sbn.notification.contentIntent,
+            requestCode = requestCode,
+        )
     }
 
     private fun cancelByBestEffort(sbn: StatusBarNotification, aggressiveCancel: Boolean) {
