@@ -1,5 +1,7 @@
 package com.tom.nono
 
+import android.Manifest
+import android.app.AlarmManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -77,6 +79,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
 import com.tom.nono.data.DeviceSoundMode
 import com.tom.nono.data.DelayedNotice
 import com.tom.nono.data.DelayedNoticeStore
@@ -159,6 +162,12 @@ private fun NonoApp() {
         } else {
             toast(context, "\u5bfc\u5165\u5931\u8d25\uff0c\u6587\u4ef6\u683c\u5f0f\u4e0d\u6b63\u786e")
         }
+    }
+
+    val requestNotificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        toast(context, if (granted) "\u901a\u77e5\u53d1\u9001\u6743\u9650\u5df2\u6388\u4e88" else "\u672a\u6388\u4e88\u901a\u77e5\u53d1\u9001\u6743\u9650")
     }
 
     LaunchedEffect(Unit) {
@@ -255,6 +264,13 @@ private fun NonoApp() {
                         manualOverrides = manualOverrides,
                         calendarStatus = calendarStatus,
                         onRefresh = { listenerEnabled = isNotificationListenerEnabled(context) },
+                        onRequestPostNotificationPermission = {
+                            if (hasPostNotificationPermission(context)) {
+                                toast(context, "\u901a\u77e5\u53d1\u9001\u6743\u9650\u5df2\u5f00\u542f")
+                            } else {
+                                requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            }
+                        },
                         onOpenSettings = { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) },
                         onOpenPolicySettings = { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)) },
                         onExport = { exportLauncher.launch("nono-rules.json") },
@@ -647,6 +663,7 @@ private fun SettingsTab(
     manualOverrides: List<ManualDayOverride>,
     calendarStatus: String,
     onRefresh: () -> Unit,
+    onRequestPostNotificationPermission: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenPolicySettings: () -> Unit,
     onExport: () -> Unit,
@@ -658,6 +675,12 @@ private fun SettingsTab(
     onDeleteOverride: (LocalDate) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val hasPostNotificationPermission = hasPostNotificationPermission(context)
+    val canScheduleExactAlarms =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+            context.getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
+
     var overrideDateText by rememberSaveable { mutableStateOf("") }
     var overrideNoteText by rememberSaveable { mutableStateOf("") }
     var overrideIsWorkday by rememberSaveable { mutableStateOf(false) }
@@ -692,6 +715,29 @@ private fun SettingsTab(
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Button(onClick = onOpenSettings, modifier = Modifier.weight(1f)) { Text("\u6253\u5f00\u7cfb\u7edf\u8bbe\u7f6e") }
                         Button(onClick = onRefresh, modifier = Modifier.weight(1f)) { Text("\u5237\u65b0\u72b6\u6001") }
+                    }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !hasPostNotificationPermission) {
+                        Button(onClick = onRequestPostNotificationPermission, modifier = Modifier.fillMaxWidth()) {
+                            Text("\u7533\u8bf7\u901a\u77e5\u53d1\u9001\u6743\u9650")
+                        }
+                    }
+                    Text(
+                        text = "\u901a\u77e5\u53d1\u9001\u6743\u9650: " + if (hasPostNotificationPermission) "\u5df2\u5f00\u542f" else "\u672a\u5f00\u542f",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    Text(
+                        text = "\u7cbe\u786e\u95f9\u949f: " + if (canScheduleExactAlarms) "\u53ef\u7528" else "\u53d7\u9650\uff08\u5ef6\u540e\u63d0\u9192\u53ef\u80fd\u4e0d\u51c6\u65f6\uff09",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !canScheduleExactAlarms) {
+                        Button(
+                            onClick = {
+                                context.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM))
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("\u6253\u5f00\u7cbe\u786e\u95f9\u949f\u8bbe\u7f6e")
+                        }
                     }
                     Button(onClick = onOpenPolicySettings, modifier = Modifier.fillMaxWidth()) {
                         Text("\u6253\u5f00\u52ff\u6270\u8bbf\u95ee")
@@ -1033,7 +1079,15 @@ private fun RuleFormFields(
         minLines = 4,
         label = { Text("\u5173\u952e\u5b57") },
         placeholder = { Text("\u6bcf\u884c\u4e00\u4e2a\u8054\u7cfb\u4eba\u540d\u3001\u7fa4\u540d\u6216\u9891\u9053\u540d") },
-        supportingText = { Text(if (blockAll) "\u5f53\u524d\u5c06\u5ffd\u7565\u5173\u952e\u5b57\uff0c\u76f4\u63a5\u5339\u914d\u8be5\u5e94\u7528\u5168\u90e8\u901a\u77e5\u3002" else "\u4f8b\u5982\uff1a\u8001\u677f\u3001\u9879\u76ee\u7fa4\u3001\u503c\u73ed\u901a\u77e5") },
+        supportingText = {
+            Text(
+                if (blockAll) {
+                    "\u5f53\u524d\u5c06\u5ffd\u7565\u5173\u952e\u5b57\uff0c\u76f4\u63a5\u5339\u914d\u8be5\u5e94\u7528\u5168\u90e8\u901a\u77e5\u3002"
+                } else {
+                    "\u7559\u7a7a\u8868\u793a\u5339\u914d\u8be5\u5e94\u7528\u5168\u90e8\u901a\u77e5\uff1b\u4f8b\u5982\uff1a\u8001\u677f\u3001\u9879\u76ee\u7fa4\u3001\u503c\u73ed\u901a\u77e5"
+                },
+            )
+        },
     )
 }
 
@@ -1336,11 +1390,7 @@ private fun loadInstalledApps(context: Context): List<InstalledAppInfo> {
         null
     }
     val installedApplications = if (flags != null) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            packageManager.getInstalledApplications(flags)
-        } else {
-            packageManager.getInstalledApplications(PackageManager.MATCH_ALL)
-        }
+        packageManager.getInstalledApplications(flags)
     } else {
         @Suppress("DEPRECATION")
         packageManager.getInstalledApplications(
@@ -1378,6 +1428,10 @@ private fun isNotificationListenerEnabled(context: Context): Boolean {
     return flat?.contains(expected) == true
 }
 
+private fun hasPostNotificationPermission(context: Context): Boolean =
+    Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+
 private fun Int.toHourMinute(): String = "%02d:%02d".format(this / 60, this % 60)
 
 private fun formatNoticeTime(millis: Long): String =
@@ -1407,10 +1461,9 @@ private fun NotificationRule.currentTimeStatusLabel(
     val isActiveNow =
         matchesDayContext(isWorkingDate) &&
             now.dayOfWeek in activeDays &&
-            !isInWorkingWindow(
+            isInWorkingWindow(
                 nowDay = now.dayOfWeek,
                 nowTime = now.toLocalTime(),
-                isWorkingDate = isWorkingDate,
             )
 
     if (!isActiveNow) return "\u4e0d\u751f\u6548"
