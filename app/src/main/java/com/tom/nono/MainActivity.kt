@@ -90,6 +90,7 @@ import com.tom.nono.data.RuleStore
 import com.tom.nono.data.lastSyncLabel
 import java.text.SimpleDateFormat
 import java.time.DayOfWeek
+import java.time.LocalDateTime
 import java.time.LocalDate
 import java.util.Date
 import java.util.Locale
@@ -459,6 +460,7 @@ private fun AddRuleTab(
     modifier: Modifier = Modifier,
 ) {
     var searchQuery by rememberSaveable { mutableStateOf("") }
+    var showSearchBar by rememberSaveable { mutableStateOf(true) }
     var showAllApps by rememberSaveable { mutableStateOf(false) }
     var appName by rememberSaveable { mutableStateOf("") }
     var packageName by rememberSaveable { mutableStateOf("") }
@@ -501,47 +503,61 @@ private fun AddRuleTab(
                 shape = RoundedCornerShape(24.dp),
             ) {
                 Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    OutlinedTextField(
-                        value = searchQuery,
-                        onValueChange = {
-                            searchQuery = it
-                            if (it.isNotBlank()) showAllApps = false
+                    Button(
+                        onClick = {
+                            showSearchBar = !showSearchBar
+                            if (!showSearchBar) {
+                                searchQuery = ""
+                                showAllApps = false
+                            }
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        label = { Text("\u641c\u7d22\u5df2\u5b89\u88c5\u5e94\u7528") },
-                        placeholder = { Text("\u8f93\u5165\u5e94\u7528\u540d\u6216\u5305\u540d\u7684\u4e00\u90e8\u5206") },
-                        leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
-                    )
+                    ) {
+                        Text(if (showSearchBar) "\u6536\u8d77\u641c\u7d22\u680f" else "\u5c55\u5f00\u641c\u7d22\u680f")
+                    }
 
-                    if (searchQuery.isNotBlank()) {
-                        AppListCard(
-                            apps = filteredApps,
-                            emptyText = "\u6ca1\u6709\u627e\u5230\u5339\u914d\u5e94\u7528\uff0c\u53ef\u4ee5\u624b\u52a8\u586b\u5199\u5305\u540d\u3002",
-                            onSelect = { app ->
-                                appName = app.label
-                                packageName = app.packageName
+                    if (showSearchBar) {
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = {
+                                searchQuery = it
+                                if (it.isNotBlank()) showAllApps = false
                             },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            label = { Text("\u641c\u7d22\u5df2\u5b89\u88c5\u5e94\u7528") },
+                            placeholder = { Text("\u8f93\u5165\u5e94\u7528\u540d\u6216\u5305\u540d\u7684\u4e00\u90e8\u5206") },
+                            leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
                         )
-                    } else {
-                        Button(onClick = { showAllApps = !showAllApps }, modifier = Modifier.fillMaxWidth()) {
-                            Text(if (showAllApps) "\u6536\u8d77\u5168\u90e8\u5e94\u7528" else "\u5c55\u5f00\u5168\u90e8\u5e94\u7528")
-                        }
-                        if (showAllApps) {
+
+                        if (searchQuery.isNotBlank()) {
                             AppListCard(
-                                apps = installedApps,
-                                emptyText = "\u6ca1\u6709\u8bfb\u53d6\u5230\u5e94\u7528\u5217\u8868\u3002",
+                                apps = filteredApps,
+                                emptyText = "\u6ca1\u6709\u627e\u5230\u5339\u914d\u5e94\u7528\uff0c\u53ef\u4ee5\u624b\u52a8\u586b\u5199\u5305\u540d\u3002",
                                 onSelect = { app ->
                                     appName = app.label
                                     packageName = app.packageName
+                                    searchQuery = ""
+                                    showSearchBar = false
+                                    showAllApps = false
                                 },
                             )
+                        } else {
+                            Button(onClick = { showAllApps = !showAllApps }, modifier = Modifier.fillMaxWidth()) {
+                                Text(if (showAllApps) "\u6536\u8d77\u5168\u90e8\u5e94\u7528" else "\u5c55\u5f00\u5168\u90e8\u5e94\u7528")
+                            }
+                            if (showAllApps) {
+                                AppListCard(
+                                    apps = installedApps,
+                                    emptyText = "\u6ca1\u6709\u8bfb\u53d6\u5230\u5e94\u7528\u5217\u8868\u3002",
+                                    onSelect = { app ->
+                                        appName = app.label
+                                        packageName = app.packageName
+                                    },
+                                )
+                            }
                         }
                     }
-
-                    OutlinedTextField(value = appName, onValueChange = { appName = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("\u5e94\u7528\u540d\u79f0") })
-                    OutlinedTextField(value = packageName, onValueChange = { packageName = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("\u5305\u540d") }, placeholder = { Text("\u4f8b\u5982 com.tencent.mm") })
-                    OutlinedTextField(value = note, onValueChange = { note = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("\u5907\u6ce8") }, placeholder = { Text("\u4f8b\u5982\uff1a\u8001\u677f\u767d\u540d\u5355") })
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Switch(checked = enabled, onCheckedChange = { enabled = it })
@@ -549,69 +565,31 @@ private fun AddRuleTab(
                         Text("\u89c4\u5219\u542f\u7528", fontWeight = FontWeight.SemiBold)
                     }
 
-                    ModeSelector(selectedMode = mode, onModeChange = { mode = it })
-                    RuleDayModeSelector(selectedMode = dayMode, onModeChange = { dayMode = it })
-                    if (mode == RuleMode.DELAY) {
-                        OutlinedTextField(
-                            value = remindAtText,
-                            onValueChange = { remindAtText = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
-                            label = { Text("\u63d0\u9192\u65f6\u95f4") },
-                            placeholder = { Text("09:00") },
-                            supportingText = { Text("\u5339\u914d\u5230\u89c4\u5219\u540e\uff0cNono \u4f1a\u5728\u4e0b\u4e00\u4e2a\u7b26\u5408\u6761\u4ef6\u7684 HH:mm \u65f6\u95f4\u53d1\u51fa\u672c\u5730\u63d0\u9192\u3002") },
-                        )
-                    }
-                    SoundModeSelector(selectedMode = soundMode, onModeChange = { soundMode = it })
-
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        OutlinedTextField(value = startText, onValueChange = { startText = it }, modifier = Modifier.weight(1f), singleLine = true, label = { Text("\u5f00\u59cb\u65f6\u95f4") }, placeholder = { Text("09:00") })
-                        OutlinedTextField(value = endText, onValueChange = { endText = it }, modifier = Modifier.weight(1f), singleLine = true, label = { Text("\u7ed3\u675f\u65f6\u95f4") }, placeholder = { Text("18:00") })
-                    }
-
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("\u751f\u6548\u65e5\u671f", fontWeight = FontWeight.SemiBold)
-                        val dayChips = listOf<DayOfWeek?>(null) + weekDays
-                        dayChips.chunked(4).forEach { row ->
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                row.forEach { day ->
-                                    if (day == null) {
-                                        FilterChip(
-                                            selected = selectedDays.size == weekDays.size,
-                                            onClick = { selectedDays = weekDays.toSet() },
-                                            label = { Text("\u5168\u90e8") },
-                                        )
-                                    } else {
-                                        FilterChip(
-                                            selected = day in selectedDays,
-                                            onClick = {
-                                                selectedDays = if (day in selectedDays) selectedDays - day else selectedDays + day
-                                            },
-                                            label = { Text(day.cnLabel) },
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Switch(checked = blockAll, onCheckedChange = { blockAll = it })
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column {
-                            Text("\u6574\u5305\u5339\u914d", fontWeight = FontWeight.SemiBold)
-                            Text("\u5f00\u542f\u540e\u4f1a\u4f7f\u7528 * \u5339\u914d\u8be5\u5e94\u7528\u7684\u6240\u6709\u901a\u77e5\u3002", style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-
-                    OutlinedTextField(
-                        value = targetsText,
-                        onValueChange = { targetsText = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        minLines = 4,
-                        label = { Text("\u5173\u952e\u5b57") },
-                        placeholder = { Text("\u6bcf\u884c\u4e00\u4e2a\u8054\u7cfb\u4eba\u540d\u3001\u7fa4\u540d\u6216\u9891\u9053\u540d") },
-                        supportingText = { Text(if (blockAll) "\u5f53\u524d\u5c06\u5ffd\u7565\u5173\u952e\u5b57\uff0c\u76f4\u63a5\u5339\u914d\u8be5\u5e94\u7528\u5168\u90e8\u901a\u77e5\u3002" else "\u4f8b\u5982\uff1a\u8001\u677f\u3001\u9879\u76ee\u7fa4\u3001\u503c\u73ed\u901a\u77e5") },
+                    RuleFormFields(
+                        appName = appName,
+                        onAppNameChange = { appName = it },
+                        packageName = packageName,
+                        onPackageNameChange = { packageName = it },
+                        note = note,
+                        onNoteChange = { note = it },
+                        mode = mode,
+                        onModeChange = { mode = it },
+                        remindAtText = remindAtText,
+                        onRemindAtTextChange = { remindAtText = it },
+                        soundMode = soundMode,
+                        onSoundModeChange = { soundMode = it },
+                        dayMode = dayMode,
+                        onDayModeChange = { dayMode = it },
+                        startText = startText,
+                        onStartTextChange = { startText = it },
+                        endText = endText,
+                        onEndTextChange = { endText = it },
+                        selectedDays = selectedDays,
+                        onSelectedDaysChange = { selectedDays = it },
+                        blockAll = blockAll,
+                        onBlockAllChange = { blockAll = it },
+                        targetsText = targetsText,
+                        onTargetsTextChange = { targetsText = it },
                     )
 
                     Button(
@@ -633,6 +611,7 @@ private fun AddRuleTab(
                                 ),
                             )
                             searchQuery = ""
+                            showSearchBar = true
                             showAllApps = false
                             appName = ""
                             packageName = ""
@@ -960,6 +939,105 @@ private fun AppIcon(
 }
 
 @Composable
+private fun RuleFormFields(
+    appName: String,
+    onAppNameChange: (String) -> Unit,
+    packageName: String,
+    onPackageNameChange: (String) -> Unit,
+    note: String,
+    onNoteChange: (String) -> Unit,
+    mode: RuleMode,
+    onModeChange: (RuleMode) -> Unit,
+    remindAtText: String,
+    onRemindAtTextChange: (String) -> Unit,
+    soundMode: DeviceSoundMode,
+    onSoundModeChange: (DeviceSoundMode) -> Unit,
+    dayMode: RuleDayMode,
+    onDayModeChange: (RuleDayMode) -> Unit,
+    startText: String,
+    onStartTextChange: (String) -> Unit,
+    endText: String,
+    onEndTextChange: (String) -> Unit,
+    selectedDays: Set<DayOfWeek>,
+    onSelectedDaysChange: (Set<DayOfWeek>) -> Unit,
+    blockAll: Boolean,
+    onBlockAllChange: (Boolean) -> Unit,
+    targetsText: String,
+    onTargetsTextChange: (String) -> Unit,
+) {
+    OutlinedTextField(value = appName, onValueChange = onAppNameChange, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("\u5e94\u7528\u540d\u79f0") })
+    OutlinedTextField(value = packageName, onValueChange = onPackageNameChange, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("\u5305\u540d") }, placeholder = { Text("\u4f8b\u5982 com.tencent.mm") })
+    OutlinedTextField(value = note, onValueChange = onNoteChange, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("\u5907\u6ce8") }, placeholder = { Text("\u4f8b\u5982\uff1a\u8001\u677f\u767d\u540d\u5355") })
+
+    ModeSelector(selectedMode = mode, onModeChange = onModeChange)
+    RuleDayModeSelector(selectedMode = dayMode, onModeChange = onDayModeChange)
+    if (mode == RuleMode.DELAY) {
+        OutlinedTextField(
+            value = remindAtText,
+            onValueChange = onRemindAtTextChange,
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            label = { Text("\u63d0\u9192\u65f6\u95f4") },
+            placeholder = { Text("09:00") },
+            supportingText = { Text("\u5339\u914d\u5230\u89c4\u5219\u540e\uff0cNono \u4f1a\u5728\u4e0b\u4e00\u4e2a\u7b26\u5408\u6761\u4ef6\u7684 HH:mm \u65f6\u95f4\u53d1\u51fa\u672c\u5730\u63d0\u9192\u3002") },
+        )
+    }
+    SoundModeSelector(selectedMode = soundMode, onModeChange = onSoundModeChange)
+
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        OutlinedTextField(value = startText, onValueChange = onStartTextChange, modifier = Modifier.weight(1f), singleLine = true, label = { Text("\u5f00\u59cb\u65f6\u95f4") }, placeholder = { Text("09:00") })
+        OutlinedTextField(value = endText, onValueChange = onEndTextChange, modifier = Modifier.weight(1f), singleLine = true, label = { Text("\u7ed3\u675f\u65f6\u95f4") }, placeholder = { Text("18:00") })
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("\u751f\u6548\u65e5\u671f", fontWeight = FontWeight.SemiBold)
+        val dayChips = listOf<DayOfWeek?>(null) + weekDays
+        dayChips.chunked(4).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                row.forEach { day ->
+                    if (day == null) {
+                        FilterChip(
+                            selected = selectedDays.size == weekDays.size,
+                            onClick = { onSelectedDaysChange(weekDays.toSet()) },
+                            label = { Text("\u5168\u90e8") },
+                        )
+                    } else {
+                        FilterChip(
+                            selected = day in selectedDays,
+                            onClick = {
+                                onSelectedDaysChange(
+                                    if (day in selectedDays) selectedDays - day else selectedDays + day,
+                                )
+                            },
+                            label = { Text(day.cnLabel) },
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Switch(checked = blockAll, onCheckedChange = onBlockAllChange)
+        Spacer(modifier = Modifier.width(10.dp))
+        Column {
+            Text("\u6574\u5305\u5339\u914d", fontWeight = FontWeight.SemiBold)
+            Text("\u5f00\u542f\u540e\u4f1a\u4f7f\u7528 * \u5339\u914d\u8be5\u5e94\u7528\u7684\u6240\u6709\u901a\u77e5\u3002", style = MaterialTheme.typography.bodySmall)
+        }
+    }
+
+    OutlinedTextField(
+        value = targetsText,
+        onValueChange = onTargetsTextChange,
+        modifier = Modifier.fillMaxWidth(),
+        minLines = 4,
+        label = { Text("\u5173\u952e\u5b57") },
+        placeholder = { Text("\u6bcf\u884c\u4e00\u4e2a\u8054\u7cfb\u4eba\u540d\u3001\u7fa4\u540d\u6216\u9891\u9053\u540d") },
+        supportingText = { Text(if (blockAll) "\u5f53\u524d\u5c06\u5ffd\u7565\u5173\u952e\u5b57\uff0c\u76f4\u63a5\u5339\u914d\u8be5\u5e94\u7528\u5168\u90e8\u901a\u77e5\u3002" else "\u4f8b\u5982\uff1a\u8001\u677f\u3001\u9879\u76ee\u7fa4\u3001\u503c\u73ed\u901a\u77e5") },
+    )
+}
+
+@Composable
 private fun ModeSelector(
     selectedMode: RuleMode,
     onModeChange: (RuleMode) -> Unit,
@@ -980,15 +1058,14 @@ private fun RuleDayModeSelector(
     onModeChange: (RuleDayMode) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("规则日类型", fontWeight = FontWeight.SemiBold)
+        Text("\u89c4\u5219\u65e5\u7c7b\u578b", fontWeight = FontWeight.SemiBold)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(selected = selectedMode == RuleDayMode.WORKDAY, onClick = { onModeChange(RuleDayMode.WORKDAY) }, label = { Text("工作") })
-            FilterChip(selected = selectedMode == RuleDayMode.RESTDAY, onClick = { onModeChange(RuleDayMode.RESTDAY) }, label = { Text("休息") })
-            FilterChip(selected = selectedMode == RuleDayMode.ALL, onClick = { onModeChange(RuleDayMode.ALL) }, label = { Text("全部") })
+            FilterChip(selected = selectedMode == RuleDayMode.WORKDAY, onClick = { onModeChange(RuleDayMode.WORKDAY) }, label = { Text("\u5de5\u4f5c") })
+            FilterChip(selected = selectedMode == RuleDayMode.RESTDAY, onClick = { onModeChange(RuleDayMode.RESTDAY) }, label = { Text("\u4f11\u606f") })
+            FilterChip(selected = selectedMode == RuleDayMode.ALL, onClick = { onModeChange(RuleDayMode.ALL) }, label = { Text("\u5168\u90e8") })
         }
     }
 }
-
 @Composable
 private fun SoundModeSelector(
     selectedMode: DeviceSoundMode,
@@ -1059,10 +1136,13 @@ private fun RuleEditorCard(
     var startText by remember(rule.id) { mutableStateOf(rule.startMinutes.toHourMinute()) }
     var endText by remember(rule.id) { mutableStateOf(rule.endMinutes.toHourMinute()) }
     var targetsText by remember(rule.id) { mutableStateOf(if (rule.targets == listOf("*")) "*" else rule.targets.joinToString("\n")) }
+    var blockAll by remember(rule.id) { mutableStateOf(rule.targets == listOf("*")) }
     var selectedDays by remember(rule.id) { mutableStateOf(rule.activeDays) }
     val dragStepPx = with(androidx.compose.ui.platform.LocalDensity.current) { 72.dp.toPx() }
     var dragOffsetY by remember(rule.id) { mutableStateOf(0f) }
     var dragAccumulatedY by remember(rule.id) { mutableStateOf(0f) }
+
+    fun resolvedTargets(): List<String> = if (blockAll) listOf("*") else splitTargets(targetsText)
 
     fun persist() {
         onRuleChange(
@@ -1078,7 +1158,7 @@ private fun RuleEditorCard(
                 endMinutes = endText.toMinutesOrDefault(rule.endMinutes),
                 dayMode = dayMode,
                 activeDays = selectedDays,
-                targets = splitTargets(targetsText),
+                targets = resolvedTargets(),
             ),
         )
     }
@@ -1186,7 +1266,7 @@ private fun RuleEditorCard(
                 endMinutes = endText.toMinutesOrDefault(rule.endMinutes),
                 dayMode = dayMode,
                 activeDays = selectedDays,
-                targets = splitTargets(targetsText),
+                targets = resolvedTargets(),
             )
             val previewTargets = previewRule.targets.joinToString(separator = " / ")
             val previewMode = when (previewRule.mode) {
@@ -1194,70 +1274,46 @@ private fun RuleEditorCard(
                 RuleMode.ALLOW -> "\u5141\u8bb8"
                 RuleMode.DELAY -> "\u63d0\u9192 ${previewRule.remindAtMinutes.toHourMinute()}"
             }
+            val now = LocalDateTime.now()
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val holidayCalendarStore = remember { HolidayCalendarStore(context) }
+            val isWorkingDate = holidayCalendarStore.isWorkingDate(now.toLocalDate())
+            val nowStatus = previewRule.currentTimeStatusLabel(now = now, isWorkingDate = isWorkingDate)
             Text(
                 text = "\u9884\u89c8: ${previewRule.dayModeLabel()} | $previewMode | ${previewRule.timeRangeLabel()} | ${previewRule.dayLabel()} | $previewTargets",
                 style = MaterialTheme.typography.bodySmall,
             )
+            Text(
+                text = "\u5f53\u524d\u65f6\u95f4\u72b6\u6001: $nowStatus",
+                style = MaterialTheme.typography.bodySmall,
+            )
 
             if (expanded) {
-                OutlinedTextField(value = appName, onValueChange = { appName = it; persist() }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("\u5e94\u7528\u540d\u79f0") })
-                OutlinedTextField(value = packageName, onValueChange = { packageName = it; persist() }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("\u5305\u540d") })
-                OutlinedTextField(value = note, onValueChange = { note = it; persist() }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("\u5907\u6ce8") })
-                ModeSelector(selectedMode = mode, onModeChange = { mode = it; persist() })
-                if (mode == RuleMode.DELAY) {
-                    OutlinedTextField(
-                        value = remindAtText,
-                        onValueChange = { remindAtText = it; persist() },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        label = { Text("\u63d0\u9192\u65f6\u95f4") },
-                    )
-                }
-                SoundModeSelector(selectedMode = soundMode, onModeChange = { soundMode = it; persist() })
-
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedTextField(value = startText, onValueChange = { startText = it; persist() }, modifier = Modifier.weight(1f), singleLine = true, label = { Text("\u5f00\u59cb") })
-                    OutlinedTextField(value = endText, onValueChange = { endText = it; persist() }, modifier = Modifier.weight(1f), singleLine = true, label = { Text("\u7ed3\u675f") })
-                }
-
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("\u751f\u6548\u65e5\u671f", fontWeight = FontWeight.SemiBold)
-                    val dayChips = listOf<DayOfWeek?>(null) + weekDays
-                    dayChips.chunked(4).forEach { row ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            row.forEach { day ->
-                                if (day == null) {
-                                    FilterChip(
-                                        selected = selectedDays.size == weekDays.size,
-                                        onClick = {
-                                            selectedDays = weekDays.toSet()
-                                            persist()
-                                        },
-                                        label = { Text("\u5168\u90e8") },
-                                    )
-                                } else {
-                                    FilterChip(
-                                        selected = day in selectedDays,
-                                        onClick = {
-                                            selectedDays = if (day in selectedDays) selectedDays - day else selectedDays + day
-                                            persist()
-                                        },
-                                        label = { Text(day.cnLabel) },
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                OutlinedTextField(
-                    value = targetsText,
-                    onValueChange = { targetsText = it; persist() },
-                    modifier = Modifier.fillMaxWidth(),
-                    minLines = 4,
-                    label = { Text("\u5173\u952e\u5b57") },
-                    placeholder = { Text("\u6bcf\u884c\u4e00\u4e2a\u8054\u7cfb\u4eba\u3001\u7fa4\u540d\u6216\u4f7f\u7528 * \u5339\u914d\u6574\u5305") },
-                    supportingText = { Text("\u4f7f\u7528 * \u4f5c\u4e3a\u552f\u4e00\u5173\u952e\u5b57\u65f6\uff0c\u8868\u793a\u5339\u914d\u8be5\u5e94\u7528\u6240\u6709\u901a\u77e5\u3002") },
+                RuleFormFields(
+                    appName = appName,
+                    onAppNameChange = { appName = it; persist() },
+                    packageName = packageName,
+                    onPackageNameChange = { packageName = it; persist() },
+                    note = note,
+                    onNoteChange = { note = it; persist() },
+                    mode = mode,
+                    onModeChange = { mode = it; persist() },
+                    remindAtText = remindAtText,
+                    onRemindAtTextChange = { remindAtText = it; persist() },
+                    soundMode = soundMode,
+                    onSoundModeChange = { soundMode = it; persist() },
+                    dayMode = dayMode,
+                    onDayModeChange = { dayMode = it; persist() },
+                    startText = startText,
+                    onStartTextChange = { startText = it; persist() },
+                    endText = endText,
+                    onEndTextChange = { endText = it; persist() },
+                    selectedDays = selectedDays,
+                    onSelectedDaysChange = { selectedDays = it; persist() },
+                    blockAll = blockAll,
+                    onBlockAllChange = { blockAll = it; persist() },
+                    targetsText = targetsText,
+                    onTargetsTextChange = { targetsText = it; persist() },
                 )
 
                 HorizontalDivider(color = DividerDefaults.color.copy(alpha = 0.6f))
@@ -1280,7 +1336,11 @@ private fun loadInstalledApps(context: Context): List<InstalledAppInfo> {
         null
     }
     val installedApplications = if (flags != null) {
-        packageManager.getInstalledApplications(flags)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            packageManager.getInstalledApplications(flags)
+        } else {
+            packageManager.getInstalledApplications(PackageManager.MATCH_ALL)
+        }
     } else {
         @Suppress("DEPRECATION")
         packageManager.getInstalledApplications(
@@ -1340,6 +1400,28 @@ private fun splitTargets(raw: String): List<String> {
     return if (targets.contains("*")) listOf("*") else targets
 }
 
+private fun NotificationRule.currentTimeStatusLabel(
+    now: LocalDateTime,
+    isWorkingDate: Boolean,
+): String {
+    val isActiveNow =
+        matchesDayContext(isWorkingDate) &&
+            now.dayOfWeek in activeDays &&
+            !isInWorkingWindow(
+                nowDay = now.dayOfWeek,
+                nowTime = now.toLocalTime(),
+                isWorkingDate = isWorkingDate,
+            )
+
+    if (!isActiveNow) return "\u4e0d\u751f\u6548"
+
+    return when (mode) {
+        RuleMode.BLOCK -> "\u5c4f\u853d"
+        RuleMode.ALLOW -> "\u5141\u8bb8"
+        RuleMode.DELAY -> "\u5ef6\u540e"
+    }
+}
+
 private fun toast(context: Context, message: String) {
     Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
 }
@@ -1364,3 +1446,4 @@ private val DayOfWeek.cnLabel: String
         DayOfWeek.SATURDAY -> "\u5468\u516d"
         DayOfWeek.SUNDAY -> "\u5468\u65e5"
     }
+
