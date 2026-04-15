@@ -15,44 +15,19 @@ import com.tom.nono.data.DelayedNoticeStore
 
 class DelayedNotificationReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-        ) {
-            return
-        }
-
         val title = intent.getStringExtra(EXTRA_TITLE).orEmpty()
         val text = intent.getStringExtra(EXTRA_TEXT).orEmpty()
         val appName = intent.getStringExtra(EXTRA_APP_NAME).orEmpty()
         val requestCode = intent.getIntExtra(EXTRA_REQUEST_CODE, 0)
         val noticeId = intent.getStringExtra(EXTRA_NOTICE_ID).orEmpty()
-        val manager = context.getSystemService(NotificationManager::class.java)
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "延后通知",
-                NotificationManager.IMPORTANCE_DEFAULT,
-            ).apply {
-                description = "Nono 延后提醒的通知通道"
-            }
-            manager.createNotificationChannel(channel)
-        }
-
-        val contentText = listOf(text, appName.takeIf { it.isNotBlank() }?.let { "来自 $it" })
-            .filterNotNull()
-            .joinToString(" · ")
-
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.logo_light)
-            .setContentTitle(title.ifBlank { "延后通知" })
-            .setContentText(contentText.ifBlank { "你有一条延后提醒" })
-            .setStyle(NotificationCompat.BigTextStyle().bigText(contentText.ifBlank { "你有一条延后提醒" }))
-            .setAutoCancel(true)
-            .build()
-
-        manager.notify(requestCode, notification)
-        if (noticeId.isNotBlank()) {
+        val notified = notifyReminder(
+            context = context,
+            title = title,
+            text = text,
+            appName = appName,
+            requestCode = requestCode,
+        )
+        if (notified && noticeId.isNotBlank()) {
             DelayedNoticeStore(context).removeNotice(noticeId)
         }
     }
@@ -64,5 +39,46 @@ class DelayedNotificationReceiver : BroadcastReceiver() {
         const val EXTRA_APP_NAME = "app_name"
         const val EXTRA_REQUEST_CODE = "request_code"
         const val EXTRA_NOTICE_ID = "notice_id"
+
+        fun notifyReminder(
+            context: Context,
+            title: String,
+            text: String,
+            appName: String,
+            requestCode: Int,
+        ): Boolean {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+            ) {
+                return false
+            }
+
+            val manager = context.getSystemService(NotificationManager::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val channel = NotificationChannel(
+                    CHANNEL_ID,
+                    "延后通知",
+                    NotificationManager.IMPORTANCE_DEFAULT,
+                ).apply {
+                    description = "Nono 延后提醒的通知通道"
+                }
+                manager.createNotificationChannel(channel)
+            }
+
+            val contentText = listOf(text, appName.takeIf { it.isNotBlank() }?.let { "来自 $it" })
+                .filterNotNull()
+                .joinToString(" · ")
+
+            val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(R.drawable.logo_light)
+                .setContentTitle(title.ifBlank { "延后通知" })
+                .setContentText(contentText.ifBlank { "你有一条延后提醒" })
+                .setStyle(NotificationCompat.BigTextStyle().bigText(contentText.ifBlank { "你有一条延后提醒" }))
+                .setAutoCancel(true)
+                .build()
+
+            manager.notify(requestCode, notification)
+            return true
+        }
     }
 }
