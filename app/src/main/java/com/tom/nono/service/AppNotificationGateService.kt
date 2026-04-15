@@ -30,10 +30,10 @@ class AppNotificationGateService : NotificationListenerService() {
                 rule.matchesDayContext(isWorkingDate) &&
                 now.dayOfWeek in rule.activeDays &&
                 notificationText.matchesTargets(rule.normalizedTargets()) &&
-                !rule.isInWorkingWindow(
+                rule.isInWorkingWindow(
                     nowDay = now.dayOfWeek,
                     nowTime = now.toLocalTime(),
-                    isWorkingDate = true,
+                    isWorkingDate = isWorkingDate,
                 )
         }
 
