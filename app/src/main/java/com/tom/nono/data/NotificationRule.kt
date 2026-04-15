@@ -8,6 +8,7 @@ enum class RuleMode {
     BLOCK,
     ALLOW,
     DELAY,
+    COLLECT_ONLY,
 }
 
 enum class DeviceSoundMode {

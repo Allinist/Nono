@@ -13,6 +13,7 @@ data class DelayedNotice(
     val text: String,
     val scheduledAtMillis: Long,
     val createdAtMillis: Long,
+    val notifyEnabled: Boolean = true,
 )
 
 class DelayedNoticeStore(context: Context) {
@@ -60,6 +61,7 @@ private fun DelayedNotice.toJson(): JSONObject = JSONObject().apply {
     put("text", text)
     put("scheduledAtMillis", scheduledAtMillis)
     put("createdAtMillis", createdAtMillis)
+    put("notifyEnabled", notifyEnabled)
 }
 
 private fun JSONObject.toNotice(): DelayedNotice = DelayedNotice(
@@ -71,4 +73,5 @@ private fun JSONObject.toNotice(): DelayedNotice = DelayedNotice(
     text = optString("text"),
     scheduledAtMillis = optLong("scheduledAtMillis"),
     createdAtMillis = optLong("createdAtMillis"),
+    notifyEnabled = optBoolean("notifyEnabled", true),
 )

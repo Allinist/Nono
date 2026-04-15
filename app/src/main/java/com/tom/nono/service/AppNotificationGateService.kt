@@ -122,6 +122,17 @@ class AppNotificationGateService : NotificationListenerService() {
                     manualEnabled = selectedRule.manualEnabled,
                 )
             }
+            RuleMode.COLLECT_ONLY -> {
+                DelayedNotificationScheduler.collectOnly(
+                    context = this,
+                    sbn = sbn,
+                    ruleId = selectedRule.id,
+                    appName = selectedRule.appName,
+                    packageName = selectedRule.packageName,
+                    title = extractTitle(sbn),
+                    text = extractDisplayText(sbn),
+                )
+            }
         }
     }
 
@@ -180,17 +191,17 @@ class AppNotificationGateService : NotificationListenerService() {
             if (text.isNotBlank()) pieces.add(text)
         }
 
-        add(extras.getCharSequence(Notification.EXTRA_TITLE))
-        add(extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE))
-        add(extras.getCharSequence(Notification.EXTRA_TITLE_BIG))
-        add(extras.getCharSequence(Notification.EXTRA_TEXT))
-        add(extras.getCharSequence(Notification.EXTRA_BIG_TEXT))
-        add(extras.getCharSequence(Notification.EXTRA_SUB_TEXT))
-        add(extras.getCharSequence(Notification.EXTRA_SUMMARY_TEXT))
-        add(extras.getCharSequence(Notification.EXTRA_INFO_TEXT))
+        add(extras.safeGetCharSequence(Notification.EXTRA_TITLE))
+        add(extras.safeGetCharSequence(Notification.EXTRA_CONVERSATION_TITLE))
+        add(extras.safeGetCharSequence(Notification.EXTRA_TITLE_BIG))
+        add(extras.safeGetCharSequence(Notification.EXTRA_TEXT))
+        add(extras.safeGetCharSequence(Notification.EXTRA_BIG_TEXT))
+        add(extras.safeGetCharSequence(Notification.EXTRA_SUB_TEXT))
+        add(extras.safeGetCharSequence(Notification.EXTRA_SUMMARY_TEXT))
+        add(extras.safeGetCharSequence(Notification.EXTRA_INFO_TEXT))
         add(sbn.notification.tickerText)
-        extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)?.forEach { add(it) }
-        extras.getParcelableArray(Notification.EXTRA_MESSAGES)?.forEach { item ->
+        extras.safeGetCharSequenceArray(Notification.EXTRA_TEXT_LINES)?.forEach { add(it) }
+        extras.safeGetParcelableArray(Notification.EXTRA_MESSAGES)?.forEach { item ->
             val bundle = item as? Bundle ?: return@forEach
             add(bundle.getCharSequence("sender"))
             add(bundle.getCharSequence("text"))
@@ -204,9 +215,9 @@ class AppNotificationGateService : NotificationListenerService() {
     private fun extractTitle(sbn: StatusBarNotification): String {
         val extras = sbn.notification.extras
         val candidates = listOf(
-            extras.getCharSequence(Notification.EXTRA_TITLE)?.toString(),
-            extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)?.toString(),
-            extras.getCharSequence(Notification.EXTRA_TITLE_BIG)?.toString(),
+            extras.safeGetCharSequence(Notification.EXTRA_TITLE)?.toString(),
+            extras.safeGetCharSequence(Notification.EXTRA_CONVERSATION_TITLE)?.toString(),
+            extras.safeGetCharSequence(Notification.EXTRA_TITLE_BIG)?.toString(),
             resolveAppLabel(sbn.packageName),
         )
         return candidates.firstOrNull { !it.isNullOrBlank() }.orEmpty()
@@ -215,12 +226,12 @@ class AppNotificationGateService : NotificationListenerService() {
     private fun extractDisplayText(sbn: StatusBarNotification): String {
         val extras = sbn.notification.extras
         val candidates = buildList {
-            add(extras.getCharSequence(Notification.EXTRA_TEXT)?.toString())
-            add(extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString())
-            add(extras.getCharSequence(Notification.EXTRA_SUMMARY_TEXT)?.toString())
-            add(extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString())
-            extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)?.forEach { add(it.toString()) }
-            extras.getParcelableArray(Notification.EXTRA_MESSAGES)?.forEach { item ->
+            add(extras.safeGetCharSequence(Notification.EXTRA_TEXT)?.toString())
+            add(extras.safeGetCharSequence(Notification.EXTRA_BIG_TEXT)?.toString())
+            add(extras.safeGetCharSequence(Notification.EXTRA_SUMMARY_TEXT)?.toString())
+            add(extras.safeGetCharSequence(Notification.EXTRA_SUB_TEXT)?.toString())
+            extras.safeGetCharSequenceArray(Notification.EXTRA_TEXT_LINES)?.forEach { add(it.toString()) }
+            extras.safeGetParcelableArray(Notification.EXTRA_MESSAGES)?.forEach { item ->
                 val bundle = item as? Bundle ?: return@forEach
                 val sender = bundle.getCharSequence("sender")?.toString().orEmpty().trim()
                 val text = bundle.getCharSequence("text")?.toString().orEmpty().trim()
@@ -267,3 +278,12 @@ private fun String.matchesTargets(targets: List<String>): Boolean {
     val source = lowercase(Locale.ROOT)
     return targets.any { target -> source.contains(target.lowercase(Locale.ROOT)) }
 }
+
+private fun Bundle.safeGetCharSequence(key: String): CharSequence? =
+    runCatching { getCharSequence(key) }.getOrNull()
+
+private fun Bundle.safeGetCharSequenceArray(key: String): Array<CharSequence>? =
+    runCatching { getCharSequenceArray(key) }.getOrNull()
+
+private fun Bundle.safeGetParcelableArray(key: String): Array<android.os.Parcelable>? =
+    runCatching { getParcelableArray(key) }.getOrNull()
