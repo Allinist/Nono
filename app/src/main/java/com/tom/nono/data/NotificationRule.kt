@@ -73,8 +73,7 @@ data class NotificationRule(
         RuleDayMode.MANUAL -> true
     }
 
-    fun isInWorkingWindow(nowDay: DayOfWeek, nowTime: LocalTime, isWorkingDate: Boolean = nowDay in activeDays): Boolean {
-        if (!isWorkingDate) return false
+    fun isInWorkingWindow(nowDay: DayOfWeek, nowTime: LocalTime): Boolean {
         val nowMinutes = nowTime.hour * 60 + nowTime.minute
         return if (startMinutes <= endMinutes) {
             nowMinutes in startMinutes until endMinutes

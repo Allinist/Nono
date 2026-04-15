@@ -3,6 +3,7 @@ package com.tom.nono.service
 import android.app.NotificationManager
 import android.media.AudioManager
 import android.app.Notification
+import android.os.Build
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import com.tom.nono.data.DeviceSoundMode
@@ -24,16 +25,15 @@ class AppNotificationGateService : NotificationListenerService() {
         val isWorkingDate = holidayCalendarStore.isWorkingDate(now.toLocalDate())
 
         val matchedRules = rules.filter { rule ->
+            val normalizedTargets = rule.normalizedTargets()
             rule.enabled &&
                 rule.packageName.equals(sbn.packageName, ignoreCase = true) &&
-                rule.normalizedTargets().isNotEmpty() &&
                 rule.matchesDayContext(isWorkingDate) &&
                 now.dayOfWeek in rule.activeDays &&
-                notificationText.matchesTargets(rule.normalizedTargets()) &&
+                notificationText.matchesTargets(normalizedTargets) &&
                 rule.isInWorkingWindow(
                     nowDay = now.dayOfWeek,
                     nowTime = now.toLocalTime(),
-                    isWorkingDate = isWorkingDate,
                 )
         }
 
@@ -48,9 +48,9 @@ class AppNotificationGateService : NotificationListenerService() {
 
         when (selectedRule.mode) {
             RuleMode.ALLOW -> Unit
-            RuleMode.BLOCK -> cancelNotification(sbn.key)
+            RuleMode.BLOCK -> cancelByBestEffort(sbn)
             RuleMode.DELAY -> {
-                cancelNotification(sbn.key)
+                cancelByBestEffort(sbn)
                 DelayedNotificationScheduler.schedule(
                     context = this,
                     sbn = sbn,
@@ -64,6 +64,24 @@ class AppNotificationGateService : NotificationListenerService() {
                     dayMode = selectedRule.dayMode,
                     manualEnabled = selectedRule.manualEnabled,
                 )
+            }
+        }
+    }
+
+    private fun cancelByBestEffort(sbn: StatusBarNotification) {
+        runCatching { cancelNotification(sbn.key) }
+        @Suppress("DEPRECATION")
+        runCatching { cancelNotification(sbn.packageName, sbn.tag, sbn.id) }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            runCatching {
+                if (sbn.notification.channelId != null) {
+                    activeNotifications
+                        .filter {
+                            it.packageName == sbn.packageName &&
+                                it.notification.channelId == sbn.notification.channelId
+                        }
+                        .forEach { active -> cancelNotification(active.key) }
+                }
             }
         }
     }
@@ -111,6 +129,7 @@ class AppNotificationGateService : NotificationListenerService() {
 }
 
 private fun String.matchesTargets(targets: List<String>): Boolean {
+    if (targets.isEmpty()) return true
     if (targets.any { it == "*" }) return true
     val source = lowercase(Locale.ROOT)
     return targets.any { target -> source.contains(target.lowercase(Locale.ROOT)) }
