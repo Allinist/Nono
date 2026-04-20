@@ -14,6 +14,7 @@ import android.service.notification.NotificationListenerService
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.tom.nono.R
+import com.tom.nono.data.RuntimeTuningSettingsStore
 
 class ListenerKeepAliveService : Service() {
     private val handler = Handler(Looper.getMainLooper())
@@ -21,8 +22,9 @@ class ListenerKeepAliveService : Service() {
 
     private val rebindRunnable = object : Runnable {
         override fun run() {
+            val tuning = RuntimeTuningSettingsStore.load(this@ListenerKeepAliveService)
             val now = System.currentTimeMillis()
-            if (now - lastRebindAtMillis >= REBIND_INTERVAL_MS) {
+            if (now - lastRebindAtMillis >= tuning.rebindIntervalMs) {
                 runCatching {
                     val component = ComponentName(this@ListenerKeepAliveService, AppNotificationGateService::class.java)
                     NotificationListenerService.requestRebind(component)
@@ -41,9 +43,9 @@ class ListenerKeepAliveService : Service() {
             }
 
             val nextDelay = if (hasPendingNotices) {
-                ACTIVE_CHECK_INTERVAL_MS
+                tuning.activeCheckIntervalMs
             } else {
-                IDLE_CHECK_INTERVAL_MS
+                tuning.idleCheckIntervalMs
             }
             handler.postDelayed(this, nextDelay)
         }
@@ -96,8 +98,5 @@ class ListenerKeepAliveService : Service() {
         private const val TAG = "NonoKeepAlive"
         private const val CHANNEL_ID = "nono_listener_keepalive"
         private const val NOTIFICATION_ID = 3001
-        private const val REBIND_INTERVAL_MS = 90_000L
-        private const val ACTIVE_CHECK_INTERVAL_MS = 60_000L
-        private const val IDLE_CHECK_INTERVAL_MS = 180_000L
     }
 }

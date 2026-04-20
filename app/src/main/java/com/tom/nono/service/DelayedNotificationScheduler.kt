@@ -8,7 +8,9 @@ import android.os.Build
 import com.tom.nono.data.DelayedNotice
 import com.tom.nono.data.DelayedNoticeStore
 import com.tom.nono.data.HolidayCalendarStore
+import com.tom.nono.data.ResendTriggerPriority
 import com.tom.nono.data.RuleDayMode
+import com.tom.nono.data.RuntimeTuningSettingsStore
 import java.time.DayOfWeek
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -38,6 +40,19 @@ object DelayedNotificationScheduler {
             putExtra(DelayedNotificationReceiver.EXTRA_APP_NAME, appName)
             putExtra(DelayedNotificationReceiver.EXTRA_PACKAGE_NAME, packageName)
             putExtra(DelayedNotificationReceiver.EXTRA_ORIGINAL_CONTENT_INTENT, sbn.notification.contentIntent)
+            putParcelableArrayListExtra(
+                DelayedNotificationReceiver.EXTRA_ORIGINAL_ACTION_INTENTS,
+                ArrayList(sbn.notification.actions?.mapNotNull { it.actionIntent }.orEmpty()),
+            )
+            putStringArrayListExtra(
+                DelayedNotificationReceiver.EXTRA_ORIGINAL_ACTION_TITLES,
+                ArrayList(sbn.notification.actions?.map { it.title?.toString().orEmpty() }.orEmpty()),
+            )
+            putExtra(DelayedNotificationReceiver.EXTRA_ORIGINAL_DELETE_INTENT, sbn.notification.deleteIntent)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                putExtra(DelayedNotificationReceiver.EXTRA_ORIGINAL_BUBBLE_INTENT, sbn.notification.bubbleMetadata?.intent)
+            }
+            putExtra(DelayedNotificationReceiver.EXTRA_ORIGINAL_FULL_SCREEN_INTENT, sbn.notification.fullScreenIntent)
             putExtra(DelayedNotificationReceiver.EXTRA_REQUEST_CODE, requestCode)
             putExtra(DelayedNotificationReceiver.EXTRA_NOTICE_ID, requestCode.toString())
         }
@@ -107,37 +122,199 @@ object DelayedNotificationScheduler {
 
     fun flushDueNotices(context: Context, nowMillis: Long = System.currentTimeMillis()) {
         val store = DelayedNoticeStore(context)
+        val resendPriority = RuntimeTuningSettingsStore.load(context).resendTriggerPriority
         val dueNotices = store.loadNotices().filter { it.notifyEnabled && it.scheduledAtMillis <= nowMillis }
         dueNotices.forEach { notice ->
             val requestCode = notice.id.toIntOrNull() ?: notice.id.hashCode().absoluteValue
-            val alarmIntent = Intent(context, DelayedNotificationReceiver::class.java)
-            val existingAlarm = PendingIntent.getBroadcast(
-                context,
-                requestCode,
-                alarmIntent,
-                PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
-            )
-            val sentByOriginalAlarm = runCatching {
-                existingAlarm?.send()
-                existingAlarm != null
-            }.getOrDefault(false)
+            when (resendPriority) {
+                ResendTriggerPriority.NORMAL_ONLY -> {
+                    val notified = DelayedNotificationReceiver.notifyReminder(
+                        context = context,
+                        title = notice.title,
+                        text = notice.text,
+                        appName = notice.appName,
+                        packageName = notice.packageName,
+                        originalContentIntent = null,
+                        originalActionIntents = emptyList(),
+                        originalActionTitles = emptyList(),
+                        originalDeleteIntent = null,
+                        originalBubbleIntent = null,
+                        originalFullScreenIntent = null,
+                        requestCode = requestCode,
+                    )
+                    if (notified) {
+                        store.removeNotice(notice.id)
+                        cancel(context, notice.id)
+                    }
+                }
 
-            if (!sentByOriginalAlarm) {
-                val notified = DelayedNotificationReceiver.notifyReminder(
-                    context = context,
-                    title = notice.title,
-                    text = notice.text,
-                    appName = notice.appName,
-                    packageName = notice.packageName,
-                    originalContentIntent = null,
-                    requestCode = requestCode,
-                )
-                if (notified) {
-                    store.removeNotice(notice.id)
-                    cancel(context, notice.id)
+                ResendTriggerPriority.NORMAL_FIRST -> {
+                    val notified = DelayedNotificationReceiver.notifyReminder(
+                        context = context,
+                        title = notice.title,
+                        text = notice.text,
+                        appName = notice.appName,
+                        packageName = notice.packageName,
+                        originalContentIntent = null,
+                        originalActionIntents = emptyList(),
+                        originalActionTitles = emptyList(),
+                        originalDeleteIntent = null,
+                        originalBubbleIntent = null,
+                        originalFullScreenIntent = null,
+                        requestCode = requestCode,
+                    )
+                    if (notified) {
+                        store.removeNotice(notice.id)
+                        cancel(context, notice.id)
+                    } else {
+                        triggerExistingAlarm(context, requestCode)
+                    }
+                }
+
+                ResendTriggerPriority.FIDELITY_FIRST -> {
+                    val sent = triggerExistingAlarm(context, requestCode)
+                    if (sent) {
+                        store.removeNotice(notice.id)
+                        cancel(context, notice.id)
+                    } else {
+                        val notified = DelayedNotificationReceiver.notifyReminder(
+                            context = context,
+                            title = notice.title,
+                            text = notice.text,
+                            appName = notice.appName,
+                            packageName = notice.packageName,
+                            originalContentIntent = null,
+                            originalActionIntents = emptyList(),
+                            originalActionTitles = emptyList(),
+                            originalDeleteIntent = null,
+                            originalBubbleIntent = null,
+                            originalFullScreenIntent = null,
+                            requestCode = requestCode,
+                        )
+                        if (notified) {
+                            store.removeNotice(notice.id)
+                            cancel(context, notice.id)
+                        }
+                    }
+                }
+
+                ResendTriggerPriority.REUSE_INTENT,
+                ResendTriggerPriority.PROXY_REPLAY -> {
+                    val notified = DelayedNotificationReceiver.notifyReminder(
+                        context = context,
+                        title = notice.title,
+                        text = notice.text,
+                        appName = notice.appName,
+                        packageName = notice.packageName,
+                        originalContentIntent = null,
+                        originalActionIntents = emptyList(),
+                        originalActionTitles = emptyList(),
+                        originalDeleteIntent = null,
+                        originalBubbleIntent = null,
+                        originalFullScreenIntent = null,
+                        requestCode = requestCode,
+                    )
+                    if (notified) {
+                        store.removeNotice(notice.id)
+                        cancel(context, notice.id)
+                    }
+                }
+
+                ResendTriggerPriority.BUBBLE_FIRST -> {
+                    val sent = triggerExistingAlarm(context, requestCode)
+                    if (!sent) {
+                        val notified = DelayedNotificationReceiver.notifyReminder(
+                            context = context,
+                            title = notice.title,
+                            text = notice.text,
+                            appName = notice.appName,
+                            packageName = notice.packageName,
+                            originalContentIntent = null,
+                            originalActionIntents = emptyList(),
+                            originalActionTitles = emptyList(),
+                            originalDeleteIntent = null,
+                            originalBubbleIntent = null,
+                            originalFullScreenIntent = null,
+                            requestCode = requestCode,
+                        )
+                        if (notified) {
+                            store.removeNotice(notice.id)
+                            cancel(context, notice.id)
+                        }
+                    }
+                }
+
+                ResendTriggerPriority.FULL_SCREEN_FIRST -> {
+                    val sent = triggerExistingAlarm(context, requestCode)
+                    if (!sent) {
+                        val notified = DelayedNotificationReceiver.notifyReminder(
+                            context = context,
+                            title = notice.title,
+                            text = notice.text,
+                            appName = notice.appName,
+                            packageName = notice.packageName,
+                            originalContentIntent = null,
+                            originalActionIntents = emptyList(),
+                            originalActionTitles = emptyList(),
+                            originalDeleteIntent = null,
+                            originalBubbleIntent = null,
+                            originalFullScreenIntent = null,
+                            requestCode = requestCode,
+                        )
+                        if (notified) {
+                            store.removeNotice(notice.id)
+                            cancel(context, notice.id)
+                        }
+                    }
+                }
+
+                ResendTriggerPriority.ALARM_ONLY -> {
+                    val sent = triggerExistingAlarm(context, requestCode)
+                    if (sent) {
+                        store.removeNotice(notice.id)
+                        cancel(context, notice.id)
+                    }
+                }
+
+                ResendTriggerPriority.ALARM_FIRST -> {
+                    val sent = triggerExistingAlarm(context, requestCode)
+                    if (!sent) {
+                        val notified = DelayedNotificationReceiver.notifyReminder(
+                            context = context,
+                            title = notice.title,
+                            text = notice.text,
+                            appName = notice.appName,
+                            packageName = notice.packageName,
+                            originalContentIntent = null,
+                            originalActionIntents = emptyList(),
+                            originalActionTitles = emptyList(),
+                            originalDeleteIntent = null,
+                            originalBubbleIntent = null,
+                            originalFullScreenIntent = null,
+                            requestCode = requestCode,
+                        )
+                        if (notified) {
+                            store.removeNotice(notice.id)
+                            cancel(context, notice.id)
+                        }
+                    }
                 }
             }
         }
+    }
+
+    private fun triggerExistingAlarm(context: Context, requestCode: Int): Boolean {
+        val alarmIntent = Intent(context, DelayedNotificationReceiver::class.java)
+        val existingAlarm = PendingIntent.getBroadcast(
+            context,
+            requestCode,
+            alarmIntent,
+            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
+        )
+        return runCatching {
+            existingAlarm?.send()
+            existingAlarm != null
+        }.getOrDefault(false)
     }
 
     fun hasPendingNotices(context: Context): Boolean =

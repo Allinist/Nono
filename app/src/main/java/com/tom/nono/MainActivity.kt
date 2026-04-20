@@ -93,6 +93,8 @@ import com.tom.nono.data.NotificationRule
 import com.tom.nono.data.RuleDayMode
 import com.tom.nono.data.RuleMode
 import com.tom.nono.data.RuleStore
+import com.tom.nono.data.ResendTriggerPriority
+import com.tom.nono.data.RuntimeTuningSettingsStore
 import com.tom.nono.data.lastSyncLabel
 import com.tom.nono.service.AppNotificationGateService
 import com.tom.nono.service.DelayedNotificationReceiver
@@ -880,6 +882,19 @@ private fun SettingsTab(
     }
     val listenerDiagnostic = remember(listenerDiagTick) { loadListenerDiagnostic(context) }
     val listenerTechStatus = remember(listenerDiagTick) { notificationListenerTechStatus(context) }
+    val runtimeTuning = remember { RuntimeTuningSettingsStore.load(context) }
+    var rebindIntervalSecText by rememberSaveable {
+        mutableStateOf((runtimeTuning.rebindIntervalMs / 1000L).toString())
+    }
+    var activeCheckIntervalSecText by rememberSaveable {
+        mutableStateOf((runtimeTuning.activeCheckIntervalMs / 1000L).toString())
+    }
+    var idleCheckIntervalSecText by rememberSaveable {
+        mutableStateOf((runtimeTuning.idleCheckIntervalMs / 1000L).toString())
+    }
+    var resendPriority by rememberSaveable {
+        mutableStateOf(runtimeTuning.resendTriggerPriority.name)
+    }
 
     var overrideDateText by rememberSaveable { mutableStateOf("") }
     var overrideNoteText by rememberSaveable { mutableStateOf("") }
@@ -956,6 +971,107 @@ private fun SettingsTab(
                         text = "\u76d1\u542c\u5e95\u5c42\u72b6\u6001: $listenerTechStatus",
                         style = MaterialTheme.typography.bodySmall,
                     )
+                    Text("\u540e\u53f0\u9a7b\u7559\u53c2\u6570\uff08\u79d2\uff09", fontWeight = FontWeight.SemiBold)
+                    OutlinedTextField(
+                        value = rebindIntervalSecText,
+                        onValueChange = { rebindIntervalSecText = it.filter(Char::isDigit) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        label = { Text("\u76d1\u542c\u91cd\u8fde\u95f4\u9694") },
+                    )
+                    OutlinedTextField(
+                        value = activeCheckIntervalSecText,
+                        onValueChange = { activeCheckIntervalSecText = it.filter(Char::isDigit) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        label = { Text("\u6d3b\u8dc3\u68c0\u67e5\u95f4\u9694") },
+                    )
+                    OutlinedTextField(
+                        value = idleCheckIntervalSecText,
+                        onValueChange = { idleCheckIntervalSecText = it.filter(Char::isDigit) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        label = { Text("\u7a7a\u95f2\u68c0\u67e5\u95f4\u9694") },
+                    )
+                    Text("\u91cd\u53d1\u65b9\u6cd5", fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "\u53ef\u5206\u522b\u6d4b\u8bd5\u666e\u901a\u3001\u590d\u7528\u610f\u56fe\u3001\u4ee3\u7406\u56de\u653e\u3001\u6c14\u6ce1\u3001\u5168\u5c4f\u3001\u539f\u95f9\u949f\u3002",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(
+                                selected = resendPriority == ResendTriggerPriority.NORMAL_ONLY.name,
+                                onClick = { resendPriority = ResendTriggerPriority.NORMAL_ONLY.name },
+                                label = { Text("\u4ec5\u666e\u901a\u91cd\u53d1") },
+                            )
+                            FilterChip(
+                                selected = resendPriority == ResendTriggerPriority.NORMAL_FIRST.name,
+                                onClick = { resendPriority = ResendTriggerPriority.NORMAL_FIRST.name },
+                                label = { Text("\u666e\u901a\u4f18\u5148") },
+                            )
+                            FilterChip(
+                                selected = resendPriority == ResendTriggerPriority.FIDELITY_FIRST.name,
+                                onClick = { resendPriority = ResendTriggerPriority.FIDELITY_FIRST.name },
+                                label = { Text("\u4fdd\u771f\u4f18\u5148") },
+                            )
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(
+                                selected = resendPriority == ResendTriggerPriority.REUSE_INTENT.name,
+                                onClick = { resendPriority = ResendTriggerPriority.REUSE_INTENT.name },
+                                label = { Text("\u590d\u7528\u610f\u56fe") },
+                            )
+                            FilterChip(
+                                selected = resendPriority == ResendTriggerPriority.PROXY_REPLAY.name,
+                                onClick = { resendPriority = ResendTriggerPriority.PROXY_REPLAY.name },
+                                label = { Text("\u4ee3\u7406\u56de\u653e") },
+                            )
+                            FilterChip(
+                                selected = resendPriority == ResendTriggerPriority.BUBBLE_FIRST.name,
+                                onClick = { resendPriority = ResendTriggerPriority.BUBBLE_FIRST.name },
+                                label = { Text("\u6c14\u6ce1\u4f18\u5148") },
+                            )
+                            FilterChip(
+                                selected = resendPriority == ResendTriggerPriority.FULL_SCREEN_FIRST.name,
+                                onClick = { resendPriority = ResendTriggerPriority.FULL_SCREEN_FIRST.name },
+                                label = { Text("\u5168\u5c4f\u4f18\u5148") },
+                            )
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(
+                                selected = resendPriority == ResendTriggerPriority.ALARM_ONLY.name,
+                                onClick = { resendPriority = ResendTriggerPriority.ALARM_ONLY.name },
+                                label = { Text("\u539f\u95f9\u949f") },
+                            )
+                            FilterChip(
+                                selected = resendPriority == ResendTriggerPriority.ALARM_FIRST.name,
+                                onClick = { resendPriority = ResendTriggerPriority.ALARM_FIRST.name },
+                                label = { Text("\u95f9\u949f\u4f18\u5148") },
+                            )
+                        }
+                    }
+                    Button(
+                        onClick = {
+                            val rebindSec = rebindIntervalSecText.toIntOrNull() ?: 90
+                            val activeSec = activeCheckIntervalSecText.toIntOrNull() ?: 60
+                            val idleSec = idleCheckIntervalSecText.toIntOrNull() ?: 180
+                            RuntimeTuningSettingsStore.saveIntervalsSeconds(
+                                context = context,
+                                rebindIntervalSec = rebindSec,
+                                activeCheckIntervalSec = activeSec,
+                                idleCheckIntervalSec = idleSec,
+                            )
+                            val priority = runCatching { ResendTriggerPriority.valueOf(resendPriority) }
+                                .getOrDefault(ResendTriggerPriority.NORMAL_FIRST)
+                            RuntimeTuningSettingsStore.saveResendTriggerPriority(context, priority)
+                            restartListenerKeepAliveService(context)
+                            toast(context, "\u540e\u53f0\u53c2\u6570\u5df2\u4fdd\u5b58\u5e76\u751f\u6548")
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("\u4fdd\u5b58\u540e\u53f0\u53c2\u6570")
+                    }
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !canScheduleExactAlarms) {
                         Button(
                             onClick = {
@@ -969,6 +1085,43 @@ private fun SettingsTab(
                     Button(onClick = onOpenPolicySettings, modifier = Modifier.fillMaxWidth()) {
                         Text("\u6253\u5f00\u52ff\u6270\u8bbf\u95ee")
                     }
+                }
+            }
+        }
+
+        item {
+            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F7F4)), shape = RoundedCornerShape(24.dp)) {
+                Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("后台适配引导", fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "用于提升后台存活率（尤其华为/荣耀）。建议依次完成以下设置：",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    Button(
+                        onClick = {
+                            val ok = openAutostartSettings(context)
+                            if (!ok) toast(context, "未找到自启动管理入口，请手动在系统管家中设置")
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text("1. 打开自启动管理") }
+                    Button(
+                        onClick = {
+                            val ok = openBackgroundRunSettings(context)
+                            if (!ok) toast(context, "未找到后台运行入口，请手动在电池/应用启动中设置")
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text("2. 打开后台运行/应用启动") }
+                    Button(
+                        onClick = {
+                            val ok = openPowerOptimizationSettings(context)
+                            if (!ok) toast(context, "未找到耗电保护入口，请手动在电池设置中配置")
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text("3. 打开耗电保护设置") }
+                    Button(
+                        onClick = { openAppDetailsSettings(context) },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text("4. 打开应用详情（兜底）") }
                 }
             }
         }
@@ -1753,6 +1906,69 @@ private fun requestIgnoreBatteryOptimization(context: Context) {
         data = Uri.parse("package:${context.packageName}")
     }
     context.startActivity(intent)
+}
+
+private fun restartListenerKeepAliveService(context: Context) {
+    val intent = Intent(context, ListenerKeepAliveService::class.java)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        context.startForegroundService(intent)
+    } else {
+        context.startService(intent)
+    }
+}
+
+private fun openAutostartSettings(context: Context): Boolean {
+    val intents = listOf(
+        Intent().setComponent(ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity")),
+        Intent().setComponent(ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.appcontrol.activity.StartupAppControlActivity")),
+        Intent().setComponent(ComponentName("com.hihonor.systemmanager", "com.hihonor.systemmanager.startupmgr.ui.StartupNormalAppListActivity")),
+        Intent().setComponent(ComponentName("com.hihonor.systemmanager", "com.hihonor.systemmanager.appcontrol.activity.StartupAppControlActivity")),
+        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply { data = Uri.parse("package:${context.packageName}") },
+    )
+    return openFirstAvailableIntent(context, intents)
+}
+
+private fun openBackgroundRunSettings(context: Context): Boolean {
+    val intents = listOf(
+        Intent().setComponent(ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.optimize.process.ProtectActivity")),
+        Intent().setComponent(ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.optimize.bootstart.BootStartActivity")),
+        Intent().setComponent(ComponentName("com.hihonor.systemmanager", "com.hihonor.systemmanager.optimize.process.ProtectActivity")),
+        Intent().setComponent(ComponentName("com.hihonor.systemmanager", "com.hihonor.systemmanager.optimize.bootstart.BootStartActivity")),
+        Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS),
+        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply { data = Uri.parse("package:${context.packageName}") },
+    )
+    return openFirstAvailableIntent(context, intents)
+}
+
+private fun openPowerOptimizationSettings(context: Context): Boolean {
+    val intents = listOf(
+        Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS),
+        Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS),
+        Intent().setComponent(ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.power.ui.HwPowerManagerActivity")),
+        Intent().setComponent(ComponentName("com.hihonor.systemmanager", "com.hihonor.systemmanager.power.ui.HwPowerManagerActivity")),
+        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply { data = Uri.parse("package:${context.packageName}") },
+    )
+    return openFirstAvailableIntent(context, intents)
+}
+
+private fun openAppDetailsSettings(context: Context) {
+    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+        data = Uri.parse("package:${context.packageName}")
+    }
+    context.startActivity(intent)
+}
+
+private fun openFirstAvailableIntent(context: Context, intents: List<Intent>): Boolean {
+    val pm = context.packageManager
+    intents.forEach { intent ->
+        val safeIntent = intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val canOpen = safeIntent.resolveActivity(pm) != null
+        if (canOpen) {
+            runCatching { context.startActivity(safeIntent) }
+                .onSuccess { return true }
+        }
+    }
+    return false
 }
 
 private fun loadListenerDiagnostic(context: Context): String {

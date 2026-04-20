@@ -148,6 +148,15 @@ class AppNotificationGateService : NotificationListenerService() {
             appName = appName.ifBlank { resolveAppLabel(sbn.packageName) },
             packageName = sbn.packageName,
             originalContentIntent = sbn.notification.contentIntent,
+            originalActionIntents = sbn.notification.actions?.mapNotNull { it.actionIntent }.orEmpty(),
+            originalActionTitles = sbn.notification.actions?.map { it.title?.toString().orEmpty() }.orEmpty(),
+            originalDeleteIntent = sbn.notification.deleteIntent,
+            originalBubbleIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                sbn.notification.bubbleMetadata?.intent
+            } else {
+                null
+            },
+            originalFullScreenIntent = sbn.notification.fullScreenIntent,
             requestCode = requestCode,
         )
     }
