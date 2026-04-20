@@ -92,18 +92,22 @@ class AppNotificationGateService : NotificationListenerService() {
             return
         }
 
-        val aggressiveCancel = selectedRule.normalizedTargets().isEmpty() || selectedRule.normalizedTargets().contains("*")
-        if (selectedRule.mode != RuleMode.ALLOW) {
-            cancelByBestEffort(sbn, aggressiveCancel = aggressiveCancel)
-            // OEM bridge/wearable sync can race with first cancel, retry shortly.
-            mainHandler.postDelayed({ cancelByBestEffort(sbn, aggressiveCancel = aggressiveCancel) }, 80L)
-            mainHandler.postDelayed({ cancelByBestEffort(sbn, aggressiveCancel = aggressiveCancel) }, 260L)
-        }
-
         Log.i(TAG, "matched rule=${selectedRule.id} mode=${selectedRule.mode} pkg=${sbn.packageName}")
         recordListenerDiagnostic("matched mode=${selectedRule.mode} rule=${selectedRule.id}", sbn.packageName)
 
-        applySoundMode(selectedRule.soundMode)
+        val aggressiveCancel = selectedRule.normalizedTargets().isEmpty() || selectedRule.normalizedTargets().contains("*")
+        if (selectedRule.mode != RuleMode.ALLOW) {
+            // Notification listener callbacks do not have cross-app priority control,
+            // so we front-load mode switching and add a fast retry window to reduce races
+            // with OEM wearable bridges such as Huawei Health.
+            applySoundMode(selectedRule.soundMode)
+            cancelByBestEffort(sbn, aggressiveCancel = aggressiveCancel)
+            mainHandler.postDelayed({ cancelByBestEffort(sbn, aggressiveCancel = aggressiveCancel) }, 25L)
+            mainHandler.postDelayed({ cancelByBestEffort(sbn, aggressiveCancel = aggressiveCancel) }, 80L)
+            mainHandler.postDelayed({ cancelByBestEffort(sbn, aggressiveCancel = aggressiveCancel) }, 260L)
+        } else {
+            applySoundMode(selectedRule.soundMode)
+        }
 
         when (selectedRule.mode) {
             RuleMode.ALLOW -> {
