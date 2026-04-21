@@ -291,6 +291,7 @@ private fun NonoApp() {
                     )
                     NonoTab.Notifications -> NotificationsTab(
                         notices = delayedNotices,
+                        installedApps = installedApps,
                         onOpenNotice = { notice ->
                             val intent = DelayedNotificationReceiver.buildFallbackLaunchIntent(context, notice.packageName)
                             if (intent != null) {
@@ -465,6 +466,7 @@ private fun RulesTab(
 @Composable
 private fun NotificationsTab(
     notices: List<DelayedNotice>,
+    installedApps: List<InstalledAppInfo>,
     onOpenNotice: (DelayedNotice) -> Unit,
     onDeleteNotice: (DelayedNotice) -> Unit,
     onDeleteGroup: (List<String>) -> Unit,
@@ -502,6 +504,7 @@ private fun NotificationsTab(
             delayedGrouped.forEach { (groupKey, groupNotices) ->
                 val timeLabel = formatNoticeTime(groupNotices.first().scheduledAtMillis)
                 val appLabel = groupNotices.first().appName
+                val appInfo = installedApps.firstOrNull { it.packageName == groupNotices.first().packageName }
                 val uiKey = "delay|$groupKey"
                 item(key = uiKey) {
                     val expanded = uiKey in expandedGroups
@@ -516,9 +519,11 @@ private fun NotificationsTab(
                                     .fillMaxWidth()
                                     .clickable {
                                         if (expanded) expandedGroups.remove(uiKey) else expandedGroups.add(uiKey)
-                                    },
+                                },
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
+                                AppIcon(drawable = appInfo?.icon, contentDescription = appLabel, size = 38.dp)
+                                Spacer(modifier = Modifier.width(12.dp))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(appLabel, fontWeight = FontWeight.SemiBold)
                                     Text("$timeLabel · ${groupNotices.size} \u6761", style = MaterialTheme.typography.bodySmall)
@@ -578,6 +583,7 @@ private fun NotificationsTab(
         } else {
             collectedGrouped.forEach { (groupKey, groupNotices) ->
                 val appLabel = groupNotices.first().appName.ifBlank { groupNotices.first().packageName }
+                val appInfo = installedApps.firstOrNull { it.packageName == groupNotices.first().packageName }
                 val uiKey = "collect|$groupKey"
                 item(key = uiKey) {
                     val expanded = uiKey in expandedGroups
@@ -592,9 +598,11 @@ private fun NotificationsTab(
                                     .fillMaxWidth()
                                     .clickable {
                                         if (expanded) expandedGroups.remove(uiKey) else expandedGroups.add(uiKey)
-                                    },
+                                },
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
+                                AppIcon(drawable = appInfo?.icon, contentDescription = appLabel, size = 38.dp)
+                                Spacer(modifier = Modifier.width(12.dp))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(appLabel, fontWeight = FontWeight.SemiBold)
                                     Text("${groupNotices.size} \u6761", style = MaterialTheme.typography.bodySmall)
@@ -1092,11 +1100,11 @@ private fun SettingsTab(
         item {
             Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F7F4)), shape = RoundedCornerShape(24.dp)) {
                 Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("后台适配引导", fontWeight = FontWeight.SemiBold)
-                    Text(
-                        "用于提升后台存活率（尤其华为/荣耀）。建议依次完成以下设置：",
-                        style = MaterialTheme.typography.bodySmall,
-                    )
+                    Text("后台驻留步骤", fontWeight = FontWeight.SemiBold)
+//                    Text(
+//                        "用于提升后台存活率（尤其华为/荣耀）。建议依次完成以下设置：",
+//                        style = MaterialTheme.typography.bodySmall,
+//                    )
                     Button(
                         onClick = {
                             val ok = openAutostartSettings(context)
@@ -1121,7 +1129,7 @@ private fun SettingsTab(
                     Button(
                         onClick = { openAppDetailsSettings(context) },
                         modifier = Modifier.fillMaxWidth(),
-                    ) { Text("4. 打开应用详情（兜底）") }
+                    ) { Text("4. 打开应用详情（检查）") }
                 }
             }
         }
@@ -1129,7 +1137,7 @@ private fun SettingsTab(
         item {
             Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F7F4)), shape = RoundedCornerShape(24.dp)) {
                 Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Text("中国工作日历", fontWeight = FontWeight.SemiBold)
+                    Text("工作日历", fontWeight = FontWeight.SemiBold)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Switch(
                             checked = holidayConfig.useChinaWorkdayCalendar,
@@ -1137,11 +1145,7 @@ private fun SettingsTab(
                         )
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
-                            Text("按中国工作日/调休判断", fontWeight = FontWeight.SemiBold)
-                            Text(
-                                "开启后，规则会结合节假日、调休上班日和你手动设置的请假/加班日期。",
-                                style = MaterialTheme.typography.bodySmall,
-                            )
+                            Text("按工作日/调休判断", fontWeight = FontWeight.SemiBold)
                         }
                     }
                     OutlinedTextField(
@@ -1175,7 +1179,7 @@ private fun SettingsTab(
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         label = { Text("日期") },
-                        placeholder = { Text("2026-04-14") },
+                        placeholder = { Text("2010-01-02") },
                     )
                     OutlinedTextField(
                         value = overrideNoteText,
@@ -1254,16 +1258,16 @@ private fun SettingsTab(
             }
         }
 
-        item {
-            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F7F4)), shape = RoundedCornerShape(24.dp)) {
-                Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("\u5e94\u7528\u5217\u8868\u6743\u9650\u9650\u5236", fontWeight = FontWeight.SemiBold)
-                    Text("1. \u5df2\u7ecf\u542f\u7528 QUERY_ALL_PACKAGES \u6765\u83b7\u53d6\u5b8c\u6574\u5df2\u5b89\u88c5\u5e94\u7528\u5217\u8868\u3002")
-                    Text("2. \u5f53\u524d Android \u5bf9\u7b2c\u4e09\u65b9 App \u7684\u66f4\u9ad8\u5e94\u7528\u5217\u8868\u6743\u9650\u57fa\u672c\u6ca1\u6709\u66f4\u4e0a\u4e00\u5c42\u3002")
-                    Text("3. \u5982\u679c\u4ecd\u6709\u7f3a\u5931\uff0c\u5f88\u53ef\u80fd\u662f\u5de5\u4f5c Profile\u3001\u53cc\u5f00\u7a7a\u95f4\u6216 OEM \u79c1\u6709\u5bb9\u5668\u91cc\u7684\u5e94\u7528\uff0c\u666e\u901a App \u65e0\u6cd5\u5168\u90e8\u679a\u4e3e\u3002")
-                }
-            }
-        }
+//        item {
+//            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F7F4)), shape = RoundedCornerShape(24.dp)) {
+//                Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+//                    Text("\u5e94\u7528\u5217\u8868\u6743\u9650\u9650\u5236", fontWeight = FontWeight.SemiBold)
+//                    Text("1. \u5df2\u7ecf\u542f\u7528 QUERY_ALL_PACKAGES \u6765\u83b7\u53d6\u5b8c\u6574\u5df2\u5b89\u88c5\u5e94\u7528\u5217\u8868\u3002")
+//                    Text("2. \u5f53\u524d Android \u5bf9\u7b2c\u4e09\u65b9 App \u7684\u66f4\u9ad8\u5e94\u7528\u5217\u8868\u6743\u9650\u57fa\u672c\u6ca1\u6709\u66f4\u4e0a\u4e00\u5c42\u3002")
+//                    Text("3. \u5982\u679c\u4ecd\u6709\u7f3a\u5931\uff0c\u5f88\u53ef\u80fd\u662f\u5de5\u4f5c Profile\u3001\u53cc\u5f00\u7a7a\u95f4\u6216 OEM \u79c1\u6709\u5bb9\u5668\u91cc\u7684\u5e94\u7528\uff0c\u666e\u901a App \u65e0\u6cd5\u5168\u90e8\u679a\u4e3e\u3002")
+//                }
+//            }
+//        }
     }
 }
 
