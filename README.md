@@ -1,5 +1,7 @@
 # Nono
 
+[![English](https://img.shields.io/badge/README-English-blue)](README.en.md)
+
 Nono 是一个 Android 通知规则工具，用来按应用、关键字、工作日和工作时间过滤通知。
 
 ## 捐助 / Sponsor

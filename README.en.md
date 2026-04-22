@@ -1,5 +1,7 @@
 # Nono
 
+[![中文](https://img.shields.io/badge/README-%E4%B8%AD%E6%96%87-blue)](README.md)
+
 Nono is an Android notification rule tool for filtering notifications by app, keyword, weekday, and working hours.
 
 ## Sponsor
