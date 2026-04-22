@@ -1,13 +1,9 @@
 # Nono
 
 [![English](https://img.shields.io/badge/README-English-blue)](README.en.md)
+[![Open Collective](https://img.shields.io/badge/Open%20Collective-%E6%8D%90%E5%8A%A9-blue)](https://opencollective.com/nonotification)
 
 Nono 是一个 Android 通知规则工具，用来按应用、关键字、工作日和工作时间过滤通知。
-
-## 捐助 / Sponsor
-
-如果 Nono 对你有帮助，欢迎通过 GitHub Sponsors 里的 Open Collective 支持项目：
-[https://opencollective.com/nonotification](https://opencollective.com/nonotification)
 
 ## 界面结构
 
@@ -40,19 +36,11 @@ Nono 是一个 Android 通知规则工具，用来按应用、关键字、工作
 - 导入：在 `设置` 页点击 `导入配置`，选择之前导出的 JSON 文件
 - 当前导入策略：导入后覆盖本地规则
 
-## 运行方式
-
-1. 在 Android Studio 或 IntelliJ IDEA 中打开项目根目录。
-2. 等待 Gradle 同步完成。
-3. 连接真机并开启 USB 调试。
-4. 运行 `app` 配置。
-5. 安装后进入 `设置` 页，打开通知访问权限。
-6. 回到 `规则` 或 `配置` 页调整规则。
-
 ## 捐助 / Sponsor
 
 如果 Nono 对你有帮助，欢迎通过 GitHub Sponsors 里的 Open Collective 支持项目：
-[https://opencollective.com/nonotification](https://opencollective.com/nonotification)
+
+[![Open Collective](https://img.shields.io/badge/Open%20Collective-%E6%8D%90%E5%8A%A9-blue)](https://opencollective.com/nonotification)
 
 ## 许可证
 
