@@ -2009,7 +2009,8 @@ private fun RuleEditorCard(
             val holidayCalendarStore = remember { HolidayCalendarStore(context) }
             val isWorkingDate = holidayCalendarStore.isWorkingDate(now.toLocalDate())
             val nowStatus = previewRule.currentTimeStatusLabel(now = now, isWorkingDate = isWorkingDate)
-            val previewDays = previewRule.activeDays.sortedBy { it.value }.joinToString(" ") { s(it.cnLabel) }
+            val strings = LocalAppStrings.current
+            val previewDays = previewRule.activeDays.sortedBy { it.value }.joinToString(" ") { strings.text(it.cnLabel) }
             Text(
                 text = "${s("预览")}: ${s(previewRule.dayModeLabel())} | $previewMode | ${previewRule.timeRangeLabel()} | $previewDays | $previewTargets",
                 style = MaterialTheme.typography.bodySmall,
