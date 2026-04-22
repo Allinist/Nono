@@ -33,8 +33,8 @@ jobs:
       - name: Read and validate app version
         id: app_version
         run: |
-          VERSION_NAME=$(sed -n 's/^versionName=//p' version.properties | head -n 1 | tr -d '\r' | xargs)
-          VERSION_CODE=$(sed -n 's/^versionCode=//p' version.properties | head -n 1 | tr -d '\r' | xargs)
+          VERSION_NAME=$(awk -F= '{ sub(/^\xef\xbb\xbf/, "", $1); gsub(/\r/, "", $2); if ($1 == "versionName") print $2 }' version.properties | head -n 1 | xargs)
+          VERSION_CODE=$(awk -F= '{ sub(/^\xef\xbb\xbf/, "", $1); gsub(/\r/, "", $2); if ($1 == "versionCode") print $2 }' version.properties | head -n 1 | xargs)
           TAG_VERSION="${GITHUB_REF_NAME#v}"
 
           if [ -z "$VERSION_NAME" ] || [ -z "$VERSION_CODE" ]; then

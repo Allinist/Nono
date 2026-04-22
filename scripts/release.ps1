@@ -12,11 +12,12 @@ $OutputEncoding = [Console]::OutputEncoding = [Text.UTF8Encoding]::new()
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 $versionFile = Join-Path $repoRoot "version.properties"
+$utf8NoBom = [Text.UTF8Encoding]::new($false)
 
 Set-Location $repoRoot
 
 if (-not (Test-Path $versionFile)) {
-    "versionName=0.0.0`nversionCode=0" | Set-Content -Path $versionFile -Encoding UTF8
+    [IO.File]::WriteAllText($versionFile, "versionName=0.0.0`nversionCode=0`n", $utf8NoBom)
 }
 
 $props = @{}
@@ -68,10 +69,8 @@ if (git rev-parse -q --verify "refs/tags/$tagName") {
     throw "Tag $tagName already exists."
 }
 
-@"
-versionName=$newVersionName
-versionCode=$newVersionCode
-"@ | Set-Content -Path $versionFile -Encoding UTF8
+$versionContent = "versionName=$newVersionName`nversionCode=$newVersionCode`n"
+[IO.File]::WriteAllText($versionFile, $versionContent, $utf8NoBom)
 
 if ([string]::IsNullOrWhiteSpace($Message)) {
     $Message = "Release $tagName"
