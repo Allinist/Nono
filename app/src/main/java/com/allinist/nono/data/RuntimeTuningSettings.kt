@@ -18,7 +18,7 @@ data class RuntimeTuningSettings(
     val rebindIntervalMs: Long = RuntimeTuningSettingsStore.DEFAULT_REBIND_INTERVAL_MS,
     val activeCheckIntervalMs: Long = RuntimeTuningSettingsStore.DEFAULT_ACTIVE_CHECK_INTERVAL_MS,
     val idleCheckIntervalMs: Long = RuntimeTuningSettingsStore.DEFAULT_IDLE_CHECK_INTERVAL_MS,
-    val resendTriggerPriority: ResendTriggerPriority = ResendTriggerPriority.NORMAL_FIRST,
+    val resendTriggerPriority: ResendTriggerPriority = ResendTriggerPriority.FIDELITY_FIRST,
 )
 
 object RuntimeTuningSettingsStore {
@@ -37,9 +37,9 @@ object RuntimeTuningSettingsStore {
 
     fun load(context: Context): RuntimeTuningSettings {
         val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
-        val priority = prefs.getString(KEY_RESEND_TRIGGER_PRIORITY, ResendTriggerPriority.NORMAL_FIRST.name)
+        val priority = prefs.getString(KEY_RESEND_TRIGGER_PRIORITY, ResendTriggerPriority.FIDELITY_FIRST.name)
             ?.let { runCatching { ResendTriggerPriority.valueOf(it) }.getOrNull() }
-            ?: ResendTriggerPriority.NORMAL_FIRST
+            ?: ResendTriggerPriority.FIDELITY_FIRST
         return RuntimeTuningSettings(
             rebindIntervalMs = prefs.getLong(KEY_REBIND_INTERVAL_MS, DEFAULT_REBIND_INTERVAL_MS),
             activeCheckIntervalMs = prefs.getLong(KEY_ACTIVE_CHECK_INTERVAL_MS, DEFAULT_ACTIVE_CHECK_INTERVAL_MS),

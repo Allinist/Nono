@@ -25,10 +25,12 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CheckCircle
@@ -49,7 +51,10 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DividerDefaults
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -1097,6 +1102,7 @@ private fun AddRuleTab(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SettingsTab(
     listenerEnabled: Boolean,
@@ -1152,6 +1158,22 @@ private fun SettingsTab(
     var resendPriority by rememberSaveable {
         mutableStateOf(runtimeTuning.resendTriggerPriority.name)
     }
+    var resendPriorityExpanded by rememberSaveable { mutableStateOf(false) }
+    val resendPriorityOptions = listOf(
+        ResendTriggerPriority.FIDELITY_FIRST to s("保真优先"),
+        ResendTriggerPriority.NORMAL_FIRST to s("普通优先"),
+        ResendTriggerPriority.NORMAL_ONLY to s("仅普通重发"),
+        ResendTriggerPriority.REUSE_INTENT to s("复用意图"),
+        ResendTriggerPriority.PROXY_REPLAY to s("代理回放"),
+        ResendTriggerPriority.BUBBLE_FIRST to s("气泡优先"),
+        ResendTriggerPriority.FULL_SCREEN_FIRST to s("全屏优先"),
+        ResendTriggerPriority.ALARM_FIRST to s("闹钟优先"),
+        ResendTriggerPriority.ALARM_ONLY to s("原闹钟"),
+    )
+    val selectedResendPriorityLabel = resendPriorityOptions
+        .firstOrNull { it.first.name == resendPriority }
+        ?.second
+        ?: s("保真优先")
 
     var overrideDateText by rememberSaveable { mutableStateOf("") }
     var overrideNoteText by rememberSaveable { mutableStateOf("") }
@@ -1170,10 +1192,29 @@ private fun SettingsTab(
 //            }
 
         item {
-            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F7F4)), shape = RoundedCornerShape(24.dp)) {
-                Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(s("语言"), fontWeight = FontWeight.SemiBold)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F7F4)),
+                shape = RoundedCornerShape(24.dp),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(18.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text(
+                        s("语言"),
+                        modifier = Modifier.weight(1f),
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Row(
+                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
                         FilterChip(
                             selected = languageSetting == AppLanguage.System,
                             onClick = { onLanguageChange(AppLanguage.System) },
@@ -1280,57 +1321,37 @@ private fun SettingsTab(
                         s("可分别测试普通、复用意图、代理回放、气泡、全屏、原闹钟。"),
                         style = MaterialTheme.typography.bodySmall,
                     )
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            FilterChip(
-                                selected = resendPriority == ResendTriggerPriority.NORMAL_ONLY.name,
-                                onClick = { resendPriority = ResendTriggerPriority.NORMAL_ONLY.name },
-                                label = { Text(s("仅普通重发")) },
-                            )
-                            FilterChip(
-                                selected = resendPriority == ResendTriggerPriority.NORMAL_FIRST.name,
-                                onClick = { resendPriority = ResendTriggerPriority.NORMAL_FIRST.name },
-                                label = { Text(s("普通优先")) },
-                            )
-                            FilterChip(
-                                selected = resendPriority == ResendTriggerPriority.FIDELITY_FIRST.name,
-                                onClick = { resendPriority = ResendTriggerPriority.FIDELITY_FIRST.name },
-                                label = { Text(s("保真优先")) },
-                            )
-                        }
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            FilterChip(
-                                selected = resendPriority == ResendTriggerPriority.REUSE_INTENT.name,
-                                onClick = { resendPriority = ResendTriggerPriority.REUSE_INTENT.name },
-                                label = { Text(s("复用意图")) },
-                            )
-                            FilterChip(
-                                selected = resendPriority == ResendTriggerPriority.PROXY_REPLAY.name,
-                                onClick = { resendPriority = ResendTriggerPriority.PROXY_REPLAY.name },
-                                label = { Text(s("代理回放")) },
-                            )
-                            FilterChip(
-                                selected = resendPriority == ResendTriggerPriority.BUBBLE_FIRST.name,
-                                onClick = { resendPriority = ResendTriggerPriority.BUBBLE_FIRST.name },
-                                label = { Text(s("气泡优先")) },
-                            )
-                            FilterChip(
-                                selected = resendPriority == ResendTriggerPriority.FULL_SCREEN_FIRST.name,
-                                onClick = { resendPriority = ResendTriggerPriority.FULL_SCREEN_FIRST.name },
-                                label = { Text(s("全屏优先")) },
-                            )
-                        }
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            FilterChip(
-                                selected = resendPriority == ResendTriggerPriority.ALARM_ONLY.name,
-                                onClick = { resendPriority = ResendTriggerPriority.ALARM_ONLY.name },
-                                label = { Text(s("原闹钟")) },
-                            )
-                            FilterChip(
-                                selected = resendPriority == ResendTriggerPriority.ALARM_FIRST.name,
-                                onClick = { resendPriority = ResendTriggerPriority.ALARM_FIRST.name },
-                                label = { Text(s("闹钟优先")) },
-                            )
+                    ExposedDropdownMenuBox(
+                        expanded = resendPriorityExpanded,
+                        onExpandedChange = { resendPriorityExpanded = !resendPriorityExpanded },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        OutlinedTextField(
+                            value = selectedResendPriorityLabel,
+                            onValueChange = {},
+                            modifier = Modifier
+                                .menuAnchor()
+                                .fillMaxWidth(),
+                            readOnly = true,
+                            singleLine = true,
+                            label = { Text(s("重发方法")) },
+                            trailingIcon = {
+                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = resendPriorityExpanded)
+                            },
+                        )
+                        ExposedDropdownMenu(
+                            expanded = resendPriorityExpanded,
+                            onDismissRequest = { resendPriorityExpanded = false },
+                        ) {
+                            resendPriorityOptions.forEach { (priority, label) ->
+                                DropdownMenuItem(
+                                    text = { Text(label) },
+                                    onClick = {
+                                        resendPriority = priority.name
+                                        resendPriorityExpanded = false
+                                    },
+                                )
+                            }
                         }
                     }
                     Button(
@@ -1345,7 +1366,7 @@ private fun SettingsTab(
                                 idleCheckIntervalSec = idleSec,
                             )
                             val priority = runCatching { ResendTriggerPriority.valueOf(resendPriority) }
-                                .getOrDefault(ResendTriggerPriority.NORMAL_FIRST)
+                                .getOrDefault(ResendTriggerPriority.FIDELITY_FIRST)
                             RuntimeTuningSettingsStore.saveResendTriggerPriority(context, priority)
                             restartListenerKeepAliveService(context)
                             toast(context, strings.text("后台参数已保存并生效"))

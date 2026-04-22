@@ -30,6 +30,26 @@ jobs:
       - name: Make Gradle wrapper executable
         run: chmod +x ./gradlew
 
+      - name: Read and validate app version
+        id: app_version
+        run: |
+          VERSION_NAME=$(sed -n 's/^versionName=//p' version.properties | head -n 1 | tr -d '\r' | xargs)
+          VERSION_CODE=$(sed -n 's/^versionCode=//p' version.properties | head -n 1 | tr -d '\r' | xargs)
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+
+          if [ -z "$VERSION_NAME" ] || [ -z "$VERSION_CODE" ]; then
+            echo "version.properties must contain versionName and versionCode."
+            exit 1
+          fi
+
+          if [ "$VERSION_NAME" != "$TAG_VERSION" ]; then
+            echo "Tag version ($TAG_VERSION) does not match version.properties versionName ($VERSION_NAME)."
+            exit 1
+          fi
+
+          echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+
       - name: Validate release signing secrets
         env:
           RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
@@ -55,12 +75,6 @@ jobs:
           RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: ./gradlew assembleRelease
-
-      - name: Read app version
-        id: app_version
-        run: |
-          VERSION_NAME=$(grep '^versionName=' version.properties | cut -d= -f2)
-          echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Rename APK
         run: |
