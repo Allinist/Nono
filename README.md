@@ -2,36 +2,28 @@
 
 Nono 是一个 Android 通知规则工具，用来按应用、关键字、工作日和工作时间过滤通知。
 
-## 当前能力
+## 捐助 / Sponsor
 
-- 按应用包名匹配规则
-- 按联系人名、群名、频道名等关键字匹配通知
-- 使用 `*` 作为唯一关键字时，匹配该应用的全部通知
-- 非工作时间自动取消命中的通知
-- 支持将命中的通知延后若干分钟后以 Nono 本地通知重新提醒
-- 支持在命中规则时尝试切换系统响铃、震动、静音模式
-- 支持本机应用搜索和包名自动回填
-- 支持规则导入和导出
+如果 Nono 对你有帮助，欢迎通过 GitHub Sponsors 里的 Open Collective 支持项目：
+[https://opencollective.com/nonotification](https://opencollective.com/nonotification)
+
+If Nono is useful to you, you can support the project through Open Collective on GitHub Sponsors:
+[https://opencollective.com/nonotification](https://opencollective.com/nonotification)
 
 ## 界面结构
 
+- `通知`：查看延后、收集的通知
 - `规则`：查看和编辑现有规则
-- `新增配置`：搜索已安装应用，自动获取包名并创建规则
+- `配置`：搜索已安装应用，自动获取包名并创建规则
 - `设置`：通知权限、导入导出、包名获取说明
 
 ## 搜索应用与自动获取包名
 
-1. 打开 `新增配置` 标签页。
+1. 打开 `配置` 标签页。
 2. 在搜索框输入应用名或包名的一部分。
 3. 搜索结果支持应用名部分匹配和包名部分匹配。
 4. 点击结果后，应用名和包名会自动填入表单。
 5. 不搜索时，可以点击 `展开全部应用` 查看完整应用列表。
-
-实现方式：
-
-- 使用完整安装应用列表读取本机应用
-- 展示应用名与包名
-- 点击某个结果后自动回填到新规则表单
 
 说明：
 
@@ -65,7 +57,7 @@ Nono 是一个 Android 通知规则工具，用来按应用、关键字、工作
 3. 连接真机并开启 USB 调试。
 4. 运行 `app` 配置。
 5. 安装后进入 `设置` 页，打开通知访问权限。
-6. 回到 `规则` 或 `新增配置` 页调整规则。
+6. 回到 `规则` 或 `配置` 页调整规则。
 
 ## 包名与项目名
 
@@ -77,6 +69,14 @@ Nono 是一个 Android 通知规则工具，用来按应用、关键字、工作
 
 - iOS 不能像 Android 一样拦截第三方通知，只能通过 Focus 等系统能力做替代方案。
 - iOS 替代说明见 [`docs/ios-alternatives.md`](docs/ios-alternatives.md)。
+
+## 捐助 / Sponsor
+
+如果 Nono 对你有帮助，欢迎通过 GitHub Sponsors 里的 Open Collective 支持项目：
+[https://opencollective.com/nonotification](https://opencollective.com/nonotification)
+
+If Nono is useful to you, you can support the project through Open Collective on GitHub Sponsors:
+[https://opencollective.com/nonotification](https://opencollective.com/nonotification)
 
 ## 许可证
 
