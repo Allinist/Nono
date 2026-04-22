@@ -36,18 +36,19 @@ jobs:
       - name: Rename APK
         run: |
           mkdir -p release
-          cp app/build/outputs/apk/debug/*.apk release/WeChatNono-${{ github.ref_name }}-debug.apk
+          cp app/build/outputs/apk/debug/*.apk release/Nono-${{ github.ref_name }}-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: WeChatNono-${{ github.ref_name }}-debug-apk
+          name: Nono-${{ github.ref_name }}-debug-apk
           path: release/*.apk
           if-no-files-found: error
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: WeChatNono ${{ github.ref_name }}
+          name: Nono ${{ github.ref_name }}
           files: release/*.apk
+          fail_on_unmatched_files: true
           generate_release_notes: true
