@@ -1,6 +1,7 @@
 # Nono
 
 [![English](https://img.shields.io/badge/README-English-blue)](README.en.md)
+[![最新 Release](https://img.shields.io/github/v/release/Allinist/Nono?label=%E6%9C%80%E6%96%B0%20Release)](https://github.com/Allinist/Nono/releases/latest)
 [![Open Collective](https://img.shields.io/badge/Open%20Collective-%E6%8D%90%E5%8A%A9-blue)](https://opencollective.com/nonotification)
 
 Nono 是一个 Android 通知规则工具，用来按应用、关键字、工作日和工作时间过滤通知。
