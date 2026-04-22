@@ -3,6 +3,10 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+val appVersionProperties = java.util.Properties().apply {
+    rootProject.file("version.properties").inputStream().use(::load)
+}
+
 android {
     namespace = "com.tom.nono"
     compileSdk = 34
@@ -11,8 +15,8 @@ android {
         applicationId = "com.tom.nono"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = appVersionProperties.getProperty("versionCode").toInt()
+        versionName = appVersionProperties.getProperty("versionName")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

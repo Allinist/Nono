@@ -312,6 +312,26 @@ private fun NonoApp() {
                             }
                             delayedNotices = delayedNoticeStore.loadNotices()
                         },
+                        onNotifyGroupNow = { groupNotices ->
+                            var successCount = 0
+                            groupNotices.forEach { notice ->
+                                val notified = notifyNoticeNow(context, notice)
+                                if (notified) {
+                                    successCount += 1
+                                    DelayedNotificationScheduler.cancel(context, notice.id)
+                                    delayedNoticeStore.removeNotice(notice.id)
+                                }
+                            }
+                            delayedNotices = delayedNoticeStore.loadNotices()
+                            toast(
+                                context,
+                                if (successCount > 0) {
+                                    "\u5df2\u7acb\u5373\u901a\u77e5 $successCount \u6761"
+                                } else {
+                                    "\u7acb\u5373\u901a\u77e5\u5931\u8d25\uff0c\u8bf7\u68c0\u67e5\u901a\u77e5\u6743\u9650"
+                                },
+                            )
+                        },
                         modifier = Modifier.padding(innerPadding),
                     )
                     NonoTab.Settings -> SettingsTab(
@@ -470,6 +490,7 @@ private fun NotificationsTab(
     onOpenNotice: (DelayedNotice) -> Unit,
     onDeleteNotice: (DelayedNotice) -> Unit,
     onDeleteGroup: (List<String>) -> Unit,
+    onNotifyGroupNow: (List<DelayedNotice>) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val expandedGroups = remember { mutableStateListOf<String>() }
@@ -527,6 +548,9 @@ private fun NotificationsTab(
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(appLabel, fontWeight = FontWeight.SemiBold)
                                     Text("$timeLabel · ${groupNotices.size} \u6761", style = MaterialTheme.typography.bodySmall)
+                                }
+                                Button(onClick = { onNotifyGroupNow(groupNotices) }) {
+                                    Text("\u7acb\u5373\u901a\u77e5")
                                 }
                                 IconButton(onClick = { onDeleteGroup(groupNotices.map { it.id }) }) {
                                     Icon(
@@ -606,6 +630,9 @@ private fun NotificationsTab(
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(appLabel, fontWeight = FontWeight.SemiBold)
                                     Text("${groupNotices.size} \u6761", style = MaterialTheme.typography.bodySmall)
+                                }
+                                Button(onClick = { onNotifyGroupNow(groupNotices) }) {
+                                    Text("\u7acb\u5373\u901a\u77e5")
                                 }
                                 IconButton(onClick = { onDeleteGroup(groupNotices.map { it.id }) }) {
                                     Icon(
@@ -1990,6 +2017,22 @@ private fun loadListenerDiagnostic(context: Context): String {
 private fun hasPostNotificationPermission(context: Context): Boolean =
     Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
         ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+
+private fun notifyNoticeNow(context: Context, notice: DelayedNotice): Boolean =
+    DelayedNotificationReceiver.notifyReminder(
+        context = context,
+        title = notice.title,
+        text = notice.text,
+        appName = notice.appName,
+        packageName = notice.packageName,
+        originalContentIntent = null,
+        originalActionIntents = emptyList(),
+        originalActionTitles = emptyList(),
+        originalDeleteIntent = null,
+        originalBubbleIntent = null,
+        originalFullScreenIntent = null,
+        requestCode = notice.id.toIntOrNull() ?: (notice.id.hashCode() and Int.MAX_VALUE),
+    )
 
 private fun Int.toHourMinute(): String = "%02d:%02d".format(this / 60, this % 60)
 
