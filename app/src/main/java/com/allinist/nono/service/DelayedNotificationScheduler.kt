@@ -1,16 +1,16 @@
-package com.tom.nono.service
+package com.allinist.nono.service
 
 import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import com.tom.nono.data.DelayedNotice
-import com.tom.nono.data.DelayedNoticeStore
-import com.tom.nono.data.HolidayCalendarStore
-import com.tom.nono.data.ResendTriggerPriority
-import com.tom.nono.data.RuleDayMode
-import com.tom.nono.data.RuntimeTuningSettingsStore
+import com.allinist.nono.data.DelayedNotice
+import com.allinist.nono.data.DelayedNoticeStore
+import com.allinist.nono.data.HolidayCalendarStore
+import com.allinist.nono.data.ResendTriggerPriority
+import com.allinist.nono.data.RuleDayMode
+import com.allinist.nono.data.RuntimeTuningSettingsStore
 import java.time.DayOfWeek
 import java.time.LocalDateTime
 import java.time.LocalTime

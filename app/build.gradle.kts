@@ -11,12 +11,17 @@ val appVersionProperties = Properties().apply {
     }
 }
 
+val releaseKeystoreFile = System.getenv("RELEASE_KEYSTORE_FILE")
+val releaseKeystorePassword = System.getenv("RELEASE_KEYSTORE_PASSWORD")
+val releaseKeyAlias = System.getenv("RELEASE_KEY_ALIAS")
+val releaseKeyPassword = System.getenv("RELEASE_KEY_PASSWORD")
+
 android {
-    namespace = "com.tom.nono"
+    namespace = "com.allinist.nono"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.tom.nono"
+        applicationId = "com.allinist.nono"
         minSdk = 26
         targetSdk = 34
         versionCode = appVersionProperties.getProperty("versionCode").toInt()
@@ -28,9 +33,19 @@ android {
         }
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = releaseKeystoreFile?.let { file(it) }
+            storePassword = releaseKeystorePassword
+            keyAlias = releaseKeyAlias
+            keyPassword = releaseKeyPassword
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",

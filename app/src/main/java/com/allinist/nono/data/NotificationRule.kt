@@ -1,4 +1,4 @@
-package com.tom.nono.data
+package com.allinist.nono.data
 
 import java.time.DayOfWeek
 import java.time.LocalTime

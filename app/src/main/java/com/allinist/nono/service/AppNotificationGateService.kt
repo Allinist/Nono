@@ -1,4 +1,4 @@
-package com.tom.nono.service
+package com.allinist.nono.service
 
 import android.app.NotificationManager
 import android.media.AudioManager
@@ -10,10 +10,10 @@ import android.os.Bundle
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
-import com.tom.nono.data.DeviceSoundMode
-import com.tom.nono.data.HolidayCalendarStore
-import com.tom.nono.data.RuleMode
-import com.tom.nono.data.RuleStore
+import com.allinist.nono.data.DeviceSoundMode
+import com.allinist.nono.data.HolidayCalendarStore
+import com.allinist.nono.data.RuleMode
+import com.allinist.nono.data.RuleStore
 import java.time.LocalDateTime
 import java.util.Locale
 import kotlin.math.absoluteValue

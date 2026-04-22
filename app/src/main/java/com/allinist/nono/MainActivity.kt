@@ -1,4 +1,4 @@
-package com.tom.nono
+package com.allinist.nono
 
 import android.Manifest
 import android.app.AlarmManager
@@ -86,23 +86,23 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
-import com.tom.nono.data.DeviceSoundMode
-import com.tom.nono.data.DelayedNotice
-import com.tom.nono.data.DelayedNoticeStore
-import com.tom.nono.data.HolidayCalendarConfig
-import com.tom.nono.data.HolidayCalendarStore
-import com.tom.nono.data.ManualDayOverride
-import com.tom.nono.data.NotificationRule
-import com.tom.nono.data.RuleDayMode
-import com.tom.nono.data.RuleMode
-import com.tom.nono.data.RuleStore
-import com.tom.nono.data.ResendTriggerPriority
-import com.tom.nono.data.RuntimeTuningSettingsStore
-import com.tom.nono.data.lastSyncLabel
-import com.tom.nono.service.AppNotificationGateService
-import com.tom.nono.service.DelayedNotificationReceiver
-import com.tom.nono.service.DelayedNotificationScheduler
-import com.tom.nono.service.ListenerKeepAliveService
+import com.allinist.nono.data.DeviceSoundMode
+import com.allinist.nono.data.DelayedNotice
+import com.allinist.nono.data.DelayedNoticeStore
+import com.allinist.nono.data.HolidayCalendarConfig
+import com.allinist.nono.data.HolidayCalendarStore
+import com.allinist.nono.data.ManualDayOverride
+import com.allinist.nono.data.NotificationRule
+import com.allinist.nono.data.RuleDayMode
+import com.allinist.nono.data.RuleMode
+import com.allinist.nono.data.RuleStore
+import com.allinist.nono.data.ResendTriggerPriority
+import com.allinist.nono.data.RuntimeTuningSettingsStore
+import com.allinist.nono.data.lastSyncLabel
+import com.allinist.nono.service.AppNotificationGateService
+import com.allinist.nono.service.DelayedNotificationReceiver
+import com.allinist.nono.service.DelayedNotificationScheduler
+import com.allinist.nono.service.ListenerKeepAliveService
 import java.text.SimpleDateFormat
 import java.time.DayOfWeek
 import java.time.LocalDateTime
@@ -2135,18 +2135,18 @@ private fun defaultActiveDays(): Set<DayOfWeek> = setOf(
 
 private fun isNotificationListenerEnabled(context: Context): Boolean {
     val flat = Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners")
-    val expected = ComponentName(context, com.tom.nono.service.AppNotificationGateService::class.java)
+    val expected = ComponentName(context, com.allinist.nono.service.AppNotificationGateService::class.java)
         .flattenToString()
     return flat?.contains(expected) == true
 }
 
 private fun requestRebindNotificationListener(context: Context) {
-    val component = ComponentName(context, com.tom.nono.service.AppNotificationGateService::class.java)
+    val component = ComponentName(context, com.allinist.nono.service.AppNotificationGateService::class.java)
     runCatching { NotificationListenerService.requestRebind(component) }
 }
 
 private fun resetNotificationListenerComponent(context: Context) {
-    val component = ComponentName(context, com.tom.nono.service.AppNotificationGateService::class.java)
+    val component = ComponentName(context, com.allinist.nono.service.AppNotificationGateService::class.java)
     val pm = context.packageManager
     runCatching {
         pm.setComponentEnabledSetting(
@@ -2163,7 +2163,7 @@ private fun resetNotificationListenerComponent(context: Context) {
 }
 
 private fun notificationListenerTechStatus(context: Context): String {
-    val component = ComponentName(context, com.tom.nono.service.AppNotificationGateService::class.java)
+    val component = ComponentName(context, com.allinist.nono.service.AppNotificationGateService::class.java)
     val expected = component.flattenToString()
     val enabledRaw = Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners").orEmpty()
     val enabledContains = enabledRaw.contains(expected)

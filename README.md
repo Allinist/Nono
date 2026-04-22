@@ -70,8 +70,8 @@ Nono 是一个 Android 通知规则工具，用来按应用、关键字、工作
 ## 包名与项目名
 
 - 项目名：`Nono`
-- 应用 ID：`com.tom.nono`
-- Kotlin 包名：`com.tom.nono`
+- 应用 ID：`com.allinist.nono`
+- Kotlin 包名：`com.allinist.nono`
 
 ## 说明
 

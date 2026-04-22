@@ -1,8 +1,8 @@
-package com.tom.nono.data
+package com.allinist.nono.data
 
 import android.content.Context
 import androidx.annotation.RawRes
-import com.tom.nono.R
+import com.allinist.nono.R
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader

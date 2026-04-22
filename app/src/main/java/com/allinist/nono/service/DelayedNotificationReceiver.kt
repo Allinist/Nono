@@ -1,4 +1,4 @@
-package com.tom.nono.service
+package com.allinist.nono.service
 
 import android.Manifest
 import android.app.NotificationChannel
@@ -11,8 +11,8 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
-import com.tom.nono.R
-import com.tom.nono.data.DelayedNoticeStore
+import com.allinist.nono.R
+import com.allinist.nono.data.DelayedNoticeStore
 
 class DelayedNotificationReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -84,8 +84,8 @@ class DelayedNotificationReceiver : BroadcastReceiver() {
 
     companion object {
         const val CHANNEL_ID = "nono_delayed_notifications"
-        const val ACTION_REPLAY_ORIGINAL_INTENT = "com.tom.nono.action.REPLAY_ORIGINAL_INTENT"
-        const val ACTION_REPLAY_ACTION_INTENT = "com.tom.nono.action.REPLAY_ACTION_INTENT"
+        const val ACTION_REPLAY_ORIGINAL_INTENT = "com.allinist.nono.action.REPLAY_ORIGINAL_INTENT"
+        const val ACTION_REPLAY_ACTION_INTENT = "com.allinist.nono.action.REPLAY_ACTION_INTENT"
         const val EXTRA_TITLE = "title"
         const val EXTRA_TEXT = "text"
         const val EXTRA_APP_NAME = "app_name"
@@ -120,7 +120,7 @@ class DelayedNotificationReceiver : BroadcastReceiver() {
             }
 
             val manager = context.getSystemService(NotificationManager::class.java)
-            val resendMode = com.tom.nono.data.RuntimeTuningSettingsStore.load(context).resendTriggerPriority
+            val resendMode = com.allinist.nono.data.RuntimeTuningSettingsStore.load(context).resendTriggerPriority
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 val channel = NotificationChannel(
                     CHANNEL_ID,
@@ -142,7 +142,7 @@ class DelayedNotificationReceiver : BroadcastReceiver() {
                 originalFullScreenIntent = originalFullScreenIntent,
             )
             val clickIntent = when (resendMode) {
-                com.tom.nono.data.ResendTriggerPriority.FIDELITY_FIRST -> {
+                com.allinist.nono.data.ResendTriggerPriority.FIDELITY_FIRST -> {
                     buildProxyReplayIntent(
                         context = context,
                         requestCode = requestCode,
@@ -153,12 +153,12 @@ class DelayedNotificationReceiver : BroadcastReceiver() {
                     )
                 }
 
-                com.tom.nono.data.ResendTriggerPriority.REUSE_INTENT,
-                com.tom.nono.data.ResendTriggerPriority.BUBBLE_FIRST,
-                com.tom.nono.data.ResendTriggerPriority.FULL_SCREEN_FIRST
+                com.allinist.nono.data.ResendTriggerPriority.REUSE_INTENT,
+                com.allinist.nono.data.ResendTriggerPriority.BUBBLE_FIRST,
+                com.allinist.nono.data.ResendTriggerPriority.FULL_SCREEN_FIRST
                 -> directIntent
 
-                com.tom.nono.data.ResendTriggerPriority.PROXY_REPLAY -> {
+                com.allinist.nono.data.ResendTriggerPriority.PROXY_REPLAY -> {
                     buildProxyReplayIntent(
                         context = context,
                         requestCode = requestCode,
@@ -186,7 +186,7 @@ class DelayedNotificationReceiver : BroadcastReceiver() {
                 .setStyle(NotificationCompat.BigTextStyle().bigText(contentText))
                 .setContentIntent(clickIntent)
                 .setAutoCancel(true)
-            if (resendMode == com.tom.nono.data.ResendTriggerPriority.FIDELITY_FIRST) {
+            if (resendMode == com.allinist.nono.data.ResendTriggerPriority.FIDELITY_FIRST) {
                 originalActionIntents.forEachIndexed { index, pendingIntent ->
                     val actionTitle = originalActionTitles.getOrNull(index).orEmpty().ifBlank { "操作${index + 1}" }
                     builder.addAction(
@@ -235,20 +235,20 @@ class DelayedNotificationReceiver : BroadcastReceiver() {
                 }
 
         private fun preferredOriginalIntent(
-            resendMode: com.tom.nono.data.ResendTriggerPriority,
+            resendMode: com.allinist.nono.data.ResendTriggerPriority,
             originalContentIntent: PendingIntent?,
             originalBubbleIntent: PendingIntent?,
             originalFullScreenIntent: PendingIntent?,
         ): PendingIntent? = when (resendMode) {
-            com.tom.nono.data.ResendTriggerPriority.FIDELITY_FIRST -> {
+            com.allinist.nono.data.ResendTriggerPriority.FIDELITY_FIRST -> {
                 originalContentIntent
             }
 
-            com.tom.nono.data.ResendTriggerPriority.BUBBLE_FIRST -> {
+            com.allinist.nono.data.ResendTriggerPriority.BUBBLE_FIRST -> {
                 originalBubbleIntent ?: originalContentIntent ?: originalFullScreenIntent
             }
 
-            com.tom.nono.data.ResendTriggerPriority.FULL_SCREEN_FIRST -> {
+            com.allinist.nono.data.ResendTriggerPriority.FULL_SCREEN_FIRST -> {
                 originalFullScreenIntent ?: originalContentIntent ?: originalBubbleIntent
             }
 
@@ -342,7 +342,7 @@ class DelayedNotificationReceiver : BroadcastReceiver() {
                 intent.getParcelableExtra(EXTRA_ORIGINAL_FULL_SCREEN_INTENT)
             }
             val replayIntent = preferredOriginalIntent(
-                resendMode = com.tom.nono.data.RuntimeTuningSettingsStore.load(context).resendTriggerPriority,
+                resendMode = com.allinist.nono.data.RuntimeTuningSettingsStore.load(context).resendTriggerPriority,
                 originalContentIntent = originalContentIntent,
                 originalBubbleIntent = originalBubbleIntent,
                 originalFullScreenIntent = originalFullScreenIntent,

@@ -1,4 +1,4 @@
-package com.tom.nono.service
+package com.allinist.nono.service
 
 import android.content.BroadcastReceiver
 import android.content.Context

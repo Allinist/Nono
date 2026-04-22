@@ -1,4 +1,4 @@
-package com.tom.nono.service
+package com.allinist.nono.service
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -13,8 +13,8 @@ import android.os.Looper
 import android.service.notification.NotificationListenerService
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import com.tom.nono.R
-import com.tom.nono.data.RuntimeTuningSettingsStore
+import com.allinist.nono.R
+import com.allinist.nono.data.RuntimeTuningSettingsStore
 
 class ListenerKeepAliveService : Service() {
     private val handler = Handler(Looper.getMainLooper())
