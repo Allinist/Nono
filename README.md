@@ -7,9 +7,6 @@ Nono 是一个 Android 通知规则工具，用来按应用、关键字、工作
 如果 Nono 对你有帮助，欢迎通过 GitHub Sponsors 里的 Open Collective 支持项目：
 [https://opencollective.com/nonotification](https://opencollective.com/nonotification)
 
-If Nono is useful to you, you can support the project through Open Collective on GitHub Sponsors:
-[https://opencollective.com/nonotification](https://opencollective.com/nonotification)
-
 ## 界面结构
 
 - `通知`：查看延后、收集的通知
@@ -20,29 +17,20 @@ If Nono is useful to you, you can support the project through Open Collective on
 ## 搜索应用与自动获取包名
 
 1. 打开 `配置` 标签页。
-2. 在搜索框输入应用名或包名的一部分。
-3. 搜索结果支持应用名部分匹配和包名部分匹配。
-4. 点击结果后，应用名和包名会自动填入表单。
-5. 不搜索时，可以点击 `展开全部应用` 查看完整应用列表。
-
-说明：
-
-- 已启用 `QUERY_ALL_PACKAGES`
-- 已额外使用完整安装应用列表查询和 disabled/uninstalled 匹配标志
-- Android 普通第三方应用对“更高一级”的应用枚举权限基本没有再往上的公开能力
-- 如果仍然缺少应用，通常与工作 Profile、双开空间或厂商私有容器有关
+2. 在搜索框输入应用名或包名的一部分。 
+3. 如果仍然缺少应用，通常与工作 Profile、双开空间或厂商私有容器有关
 
 ## 新规则能力
 
 - `屏蔽通知`：命中规则后直接取消通知
 - `允许通知`：命中规则后放行
 - `延后通知`：命中规则后取消原通知，并在设定分钟后由 Nono 发出本地提醒
-- `系统响铃模式`：命中规则时可尝试切换为保持不变、响铃、震动或静音
+- `系统响铃`：命中规则时可尝试切换为保持不变、响铃、震动或静音
 
 说明：
 
 - `延后通知` 需要 Nono 自己发送通知，因此 Android 13 及以上需要授予通知权限
-- `震动/静音` 在部分系统上还需要授予勿扰访问，否则系统可能拒绝切换
+- `震动静音` 在部分系统上还需要授予勿扰访问，否则系统可能拒绝切换
 
 ## 导入导出配置
 
@@ -59,23 +47,9 @@ If Nono is useful to you, you can support the project through Open Collective on
 5. 安装后进入 `设置` 页，打开通知访问权限。
 6. 回到 `规则` 或 `配置` 页调整规则。
 
-## 包名与项目名
-
-- 项目名：`Nono`
-- 应用 ID：`com.allinist.nono`
-- Kotlin 包名：`com.allinist.nono`
-
-## 说明
-
-- iOS 不能像 Android 一样拦截第三方通知，只能通过 Focus 等系统能力做替代方案。
-- iOS 替代说明见 [`docs/ios-alternatives.md`](docs/ios-alternatives.md)。
-
 ## 捐助 / Sponsor
 
 如果 Nono 对你有帮助，欢迎通过 GitHub Sponsors 里的 Open Collective 支持项目：
-[https://opencollective.com/nonotification](https://opencollective.com/nonotification)
-
-If Nono is useful to you, you can support the project through Open Collective on GitHub Sponsors:
 [https://opencollective.com/nonotification](https://opencollective.com/nonotification)
 
 ## 许可证
