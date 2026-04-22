@@ -1,10 +1,14 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
 
-val appVersionProperties = java.util.Properties().apply {
-    rootProject.file("version.properties").inputStream().use(::load)
+val appVersionProperties = Properties().apply {
+    rootProject.file("version.properties").inputStream().use { input ->
+        load(input)
+    }
 }
 
 android {

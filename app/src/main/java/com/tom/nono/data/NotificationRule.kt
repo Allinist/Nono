@@ -67,10 +67,10 @@ data class NotificationRule(
         .joinToString(" ") { it.displayName }
 
     fun dayModeLabel(): String = when (dayMode) {
-        RuleDayMode.WORKDAY -> "\u5de5\u4f5c"
-        RuleDayMode.RESTDAY -> "\u4f11\u606f"
-        RuleDayMode.ALL -> "\u5168\u90e8"
-        RuleDayMode.MANUAL -> "\u5168\u90e8"
+        RuleDayMode.WORKDAY -> "工作"
+        RuleDayMode.RESTDAY -> "休息"
+        RuleDayMode.ALL -> "全部"
+        RuleDayMode.MANUAL -> "全部"
     }
 
     fun matchesDayContext(isWorkingDate: Boolean): Boolean = when (dayMode) {
@@ -97,11 +97,11 @@ data class NotificationRule(
 
 private val DayOfWeek.displayName: String
     get() = when (this) {
-        DayOfWeek.MONDAY -> "\u5468\u4e00"
-        DayOfWeek.TUESDAY -> "\u5468\u4e8c"
-        DayOfWeek.WEDNESDAY -> "\u5468\u4e09"
-        DayOfWeek.THURSDAY -> "\u5468\u56db"
-        DayOfWeek.FRIDAY -> "\u5468\u4e94"
-        DayOfWeek.SATURDAY -> "\u5468\u516d"
-        DayOfWeek.SUNDAY -> "\u5468\u65e5"
+        DayOfWeek.MONDAY -> "周一"
+        DayOfWeek.TUESDAY -> "周二"
+        DayOfWeek.WEDNESDAY -> "周三"
+        DayOfWeek.THURSDAY -> "周四"
+        DayOfWeek.FRIDAY -> "周五"
+        DayOfWeek.SATURDAY -> "周六"
+        DayOfWeek.SUNDAY -> "周日"
     }

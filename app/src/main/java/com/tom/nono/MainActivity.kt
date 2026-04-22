@@ -62,6 +62,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -70,6 +71,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -81,6 +83,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.tom.nono.data.DeviceSoundMode
@@ -135,10 +138,217 @@ class MainActivity : ComponentActivity() {
 }
 
 private enum class NonoTab(val title: String) {
-    Notifications("\u901a\u77e5"),
-    Rules("\u89c4\u5219"),
-    Add("\u914d\u7f6e"),
-    Settings("\u8bbe\u7f6e"),
+    Notifications("通知"),
+    Rules("规则"),
+    Add("配置"),
+    Settings("设置"),
+}
+
+private enum class AppLanguage(val prefValue: String) {
+    System("system"),
+    Chinese("zh"),
+    English("en");
+
+    companion object {
+        fun fromPref(value: String?): AppLanguage = values().firstOrNull { it.prefValue == value } ?: System
+    }
+}
+
+private class AppStrings(private val english: Boolean) {
+    fun text(zh: String): String = if (english) englishText[zh] ?: zh else zh
+
+    fun tabTitle(tab: NonoTab): String = text(tab.title)
+
+    private companion object {
+        val englishText = mapOf(
+            "通知" to "Notifications",
+            "规则" to "Rules",
+            "配置" to "Add",
+            "设置" to "Settings",
+            "语言" to "Language",
+            "跟随系统" to "System",
+            "中文" to "Chinese",
+            "英文" to "English",
+            "通知访问权限" to "Notification access",
+            "已开启，可按规则拦截通知。" to "Enabled. Notifications can be handled by rules.",
+            "未开启，规则暂时不会生效。" to "Disabled. Rules are inactive for now.",
+            "已开启" to "Enabled",
+            "未开启" to "Disabled",
+            "打开系统设置" to "Open system settings",
+            "刷新状态" to "Refresh status",
+            "重连通知监听服务" to "Reconnect notification listener",
+            "重置监听组件绑定" to "Reset listener component binding",
+            "申请通知发送权限" to "Request notification permission",
+            "申请忽略电池优化" to "Ignore battery optimization",
+            "打开精确闹钟设置" to "Open exact alarm settings",
+            "打开勿扰访问" to "Open Do Not Disturb access",
+            "后台驻留步骤" to "Background keep-alive steps",
+            "1. 打开自启动管理" to "1. Open autostart management",
+            "2. 打开后台运行/应用启动" to "2. Open background run/app launch",
+            "3. 打开耗电保护设置" to "3. Open power protection settings",
+            "4. 打开应用详情（检查）" to "4. Open app details",
+            "工作日历" to "Workday calendar",
+            "按工作日/调休判断" to "Use workday/holiday calendar",
+            "在线日历地址" to "Online calendar URL",
+            "同步到本地" to "Sync locally",
+            "请假与调休" to "Leave and makeup days",
+            "日期" to "Date",
+            "备注" to "Note",
+            "例如：年假 / 周日补班" to "Example: annual leave / Sunday makeup work",
+            "请假/休息" to "Leave/rest",
+            "调休加班" to "Makeup workday",
+            "保存日期覆盖" to "Save date override",
+            "暂时还没有手动日期覆盖。" to "No manual date overrides yet.",
+            "配置管理" to "Configuration",
+            "导出会生成一份 JSON 文件，导入时会覆盖当前本地规则。" to "Export creates a JSON file. Import replaces current local rules.",
+            "导出配置" to "Export",
+            "导入配置" to "Import",
+            "当前还没有规则，去“新增配置”里添加第一条规则。" to "No rules yet. Add your first rule from Add.",
+            "暂时没有延后中的通知。" to "No delayed notifications.",
+            "暂时没有已收集的通知。" to "No collected notifications.",
+            "立即通知" to "Notify now",
+            "删除整组" to "Delete group",
+            "删除" to "Delete",
+            "收起搜索栏" to "Hide search",
+            "展开搜索栏" to "Show search",
+            "搜索已安装应用" to "Search installed apps",
+            "输入应用名或包名的一部分" to "Enter part of an app name or package",
+            "没有找到匹配应用，可以手动填写包名。" to "No matching apps. You can enter the package manually.",
+            "收起全部应用" to "Hide all apps",
+            "展开全部应用" to "Show all apps",
+            "没有读取到应用列表。" to "No app list was loaded.",
+            "规则启用" to "Rule enabled",
+            "保存配置" to "Save rule",
+            "应用名称" to "App name",
+            "包名" to "Package name",
+            "例如 com.tencent.mm" to "Example: com.tencent.mm",
+            "例如：老板白名单" to "Example: boss whitelist",
+            "提醒时间" to "Reminder time",
+            "匹配到规则后，Nono 会在下一个符合条件的 HH:mm 时间发出本地提醒。" to "After a match, Nono sends a local reminder at the next eligible HH:mm time.",
+            "全天" to "All day",
+            "开始时间" to "Start time",
+            "结束时间" to "End time",
+            "生效日期" to "Active days",
+            "全部" to "All",
+            "整包匹配" to "Match whole package",
+            "开启后会使用 * 匹配该应用的所有通知。" to "When enabled, * matches all notifications from this app.",
+            "关键字" to "Keywords",
+            "每行一个联系人名、群名或频道名" to "One contact, group, or channel per line",
+            "当前将忽略关键字，直接匹配该应用全部通知。" to "Keywords are ignored; all notifications from this app match.",
+            "留空表示匹配该应用全部通知；例如：老板、项目群、值班通知" to "Leave empty to match all notifications; e.g. boss, project group, duty alert",
+            "通知模式" to "Notification mode",
+            "屏蔽" to "Block",
+            "允许" to "Allow",
+            "延后" to "Delay",
+            "收集" to "Collect",
+            "规则日类型" to "Rule day type",
+            "工作" to "Work",
+            "休息" to "Rest",
+            "系统响铃模式" to "System sound mode",
+            "保持" to "Keep",
+            "响铃" to "Ring",
+            "震动" to "Vibrate",
+            "静音" to "Silent",
+            "选择" to "Select",
+            "未命名应用" to "Unnamed app",
+            "新规则" to "New rule",
+            "请填写包名" to "Please enter package name",
+            "删除规则" to "Delete rule",
+            "预览" to "Preview",
+            "当前时间状态" to "Current time status",
+            "不生效" to "Inactive",
+            "后台驻留参数（秒）" to "Background parameters (seconds)",
+            "监听重连间隔" to "Listener reconnect interval",
+            "活跃检查间隔" to "Active check interval",
+            "空闲检查间隔" to "Idle check interval",
+            "重发方法" to "Resend method",
+            "可分别测试普通、复用意图、代理回放、气泡、全屏、原闹钟。" to "You can try normal, reused intent, proxy replay, bubble, full screen, and original alarm.",
+            "仅普通重发" to "Normal only",
+            "普通优先" to "Normal first",
+            "保真优先" to "Fidelity first",
+            "复用意图" to "Reuse intent",
+            "代理回放" to "Proxy replay",
+            "气泡优先" to "Bubble first",
+            "全屏优先" to "Full screen first",
+            "原闹钟" to "Original alarm",
+            "闹钟优先" to "Alarm first",
+            "保存后台参数" to "Save background parameters",
+            "条" to "items",
+            "通知发送权限" to "Notification permission",
+            "精确闹钟" to "Exact alarm",
+            "电池优化豁免" to "Battery optimization exemption",
+            "可用" to "Available",
+            "受限（延后提醒可能不准时）" to "Limited (delayed reminders may be inaccurate)",
+            "未开启（离开 App 后可能被限制）" to "Disabled (may be restricted after leaving the app)",
+            "监听诊断" to "Listener diagnostics",
+            "监听底层状态" to "Listener technical status",
+            "尚未收到监听回调（如果已触发通知，请重连监听服务后再观察）" to "No listener callback yet. If a notification has already arrived, reconnect the listener and observe again.",
+            "通知发送权限已授予" to "Notification permission granted",
+            "未授予通知发送权限" to "Notification permission was not granted",
+            "导出失败" to "Export failed",
+            "导入失败，文件格式不正确" to "Import failed. File format is invalid.",
+            "配置已导出" to "Configuration exported",
+            "配置已导入" to "Configuration imported",
+            "已新增规则" to "Rule added",
+            "无法打开对应应用" to "Unable to open the app",
+            "已请求重连通知监听" to "Notification listener reconnect requested",
+            "已重置组件绑定并请求重连" to "Listener component binding reset and reconnect requested",
+            "通知发送权限已开启" to "Notification permission is enabled",
+            "日期格式请使用 YYYY-MM-DD" to "Use date format YYYY-MM-DD",
+            "已保存日期覆盖" to "Date override saved",
+            "后台参数已保存并生效" to "Background parameters saved and applied",
+            "未找到自启动管理入口，请手动在系统管家中设置" to "Autostart settings were not found. Please configure them in the system manager.",
+            "未找到后台运行入口，请手动在电池/应用启动中设置" to "Background run settings were not found. Please configure them in Battery/App launch.",
+            "未找到耗电保护入口，请手动在电池设置中配置" to "Power protection settings were not found. Please configure them in Battery settings.",
+            "立即通知失败，请检查通知权限" to "Notify now failed. Please check notification permission.",
+            "已立即通知" to "Notified",
+            "已关闭中国工作日历" to "China workday calendar disabled",
+            "同步中..." to "Syncing...",
+            "系统应用" to "System app",
+            "周一" to "Mon",
+            "周二" to "Tue",
+            "周三" to "Wed",
+            "周四" to "Thu",
+            "周五" to "Fri",
+            "周六" to "Sat",
+            "周日" to "Sun",
+        )
+    }
+}
+
+private val LocalAppStrings = staticCompositionLocalOf { AppStrings(false) }
+
+@Composable
+private fun s(zh: String): String = LocalAppStrings.current.text(zh)
+
+@Composable
+private fun rememberAppStrings(language: AppLanguage): AppStrings {
+    val configuration = LocalConfiguration.current
+    val systemLocale = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+        configuration.locales[0]
+    } else {
+        @Suppress("DEPRECATION")
+        configuration.locale
+    }
+    val useEnglish = when (language) {
+        AppLanguage.System -> systemLocale.language.lowercase(Locale.ROOT) != "zh"
+        AppLanguage.Chinese -> false
+        AppLanguage.English -> true
+    }
+    return remember(language, systemLocale.language) { AppStrings(useEnglish) }
+}
+
+private const val APP_PREFS_NAME = "nono_app_prefs"
+private const val LANGUAGE_PREF_KEY = "language"
+
+private fun loadLanguageSetting(context: Context): AppLanguage =
+    AppLanguage.fromPref(context.getSharedPreferences(APP_PREFS_NAME, Context.MODE_PRIVATE).getString(LANGUAGE_PREF_KEY, null))
+
+private fun saveLanguageSetting(context: Context, language: AppLanguage) {
+    context.getSharedPreferences(APP_PREFS_NAME, Context.MODE_PRIVATE)
+        .edit()
+        .putString(LANGUAGE_PREF_KEY, language.prefValue)
+        .apply()
 }
 
 private data class InstalledAppInfo(
@@ -161,6 +371,8 @@ private fun NonoApp() {
     var manualOverrides by remember { mutableStateOf(holidayCalendarStore.loadOverrides()) }
     var calendarStatus by remember { mutableStateOf(holidayConfig.lastSyncMessage.ifBlank { holidayConfig.lastSyncLabel() }) }
     var selectedTab by rememberSaveable { mutableStateOf(NonoTab.Notifications) }
+    var languageSetting by rememberSaveable { mutableStateOf(loadLanguageSetting(context)) }
+    val appStrings = rememberAppStrings(languageSetting)
     var listenerEnabled by remember { mutableStateOf(isNotificationListenerEnabled(context)) }
     val installedApps = remember { loadInstalledApps(context) }
     val scope = rememberCoroutineScope()
@@ -170,9 +382,9 @@ private fun NonoApp() {
         runCatching {
             context.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { it.write(store.serializeRules(rules)) }
         }.onSuccess {
-            toast(context, "\u914d\u7f6e\u5df2\u5bfc\u51fa")
+            toast(context, appStrings.text("配置已导出"))
         }.onFailure {
-            toast(context, "\u5bfc\u51fa\u5931\u8d25")
+            toast(context, appStrings.text("导出失败"))
         }
     }
 
@@ -183,16 +395,16 @@ private fun NonoApp() {
         }.getOrNull()
         if (imported != null && store.importRules(imported)) {
             rules = store.loadRules()
-            toast(context, "\u914d\u7f6e\u5df2\u5bfc\u5165")
+            toast(context, appStrings.text("配置已导入"))
         } else {
-            toast(context, "\u5bfc\u5165\u5931\u8d25\uff0c\u6587\u4ef6\u683c\u5f0f\u4e0d\u6b63\u786e")
+            toast(context, appStrings.text("导入失败，文件格式不正确"))
         }
     }
 
     val requestNotificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
-        toast(context, if (granted) "\u901a\u77e5\u53d1\u9001\u6743\u9650\u5df2\u6388\u4e88" else "\u672a\u6388\u4e88\u901a\u77e5\u53d1\u9001\u6743\u9650")
+        toast(context, appStrings.text(if (granted) "通知发送权限已授予" else "未授予通知发送权限"))
     }
 
     LaunchedEffect(Unit) {
@@ -209,6 +421,7 @@ private fun NonoApp() {
         }
     }
 
+    CompositionLocalProvider(LocalAppStrings provides appStrings) {
     MaterialTheme {
         Box(
             modifier = Modifier
@@ -240,10 +453,10 @@ private fun NonoApp() {
                                         NonoTab.Notifications -> Icons.Outlined.Notifications
                                         NonoTab.Settings -> Icons.Outlined.Settings
                                     },
-                                        contentDescription = tab.title,
+                                        contentDescription = appStrings.tabTitle(tab),
                                     )
                                 },
-                                label = { Text(tab.title) },
+                                label = { Text(appStrings.tabTitle(tab)) },
                             )
                         }
                     }
@@ -285,7 +498,7 @@ private fun NonoApp() {
                             store.saveRules(updated)
                             delayedNotices = delayedNoticeStore.loadNotices()
                             selectedTab = NonoTab.Rules
-                            toast(context, "\u5df2\u65b0\u589e\u89c4\u5219")
+                            toast(context, appStrings.text("已新增规则"))
                         },
                         modifier = Modifier.padding(innerPadding),
                     )
@@ -297,7 +510,7 @@ private fun NonoApp() {
                             if (intent != null) {
                                 context.startActivity(intent)
                             } else {
-                                toast(context, "无法打开对应应用")
+                                toast(context, appStrings.text("无法打开对应应用"))
                             }
                         },
                         onDeleteNotice = { notice ->
@@ -326,9 +539,9 @@ private fun NonoApp() {
                             toast(
                                 context,
                                 if (successCount > 0) {
-                                    "\u5df2\u7acb\u5373\u901a\u77e5 $successCount \u6761"
+                                    "${appStrings.text("已立即通知")} $successCount ${appStrings.text("条")}"
                                 } else {
-                                    "\u7acb\u5373\u901a\u77e5\u5931\u8d25\uff0c\u8bf7\u68c0\u67e5\u901a\u77e5\u6743\u9650"
+                                    appStrings.text("立即通知失败，请检查通知权限")
                                 },
                             )
                         },
@@ -339,24 +552,25 @@ private fun NonoApp() {
                         holidayConfig = holidayConfig,
                         manualOverrides = manualOverrides,
                         calendarStatus = calendarStatus,
+                        languageSetting = languageSetting,
                         onRefresh = { listenerEnabled = isNotificationListenerEnabled(context) },
                         onRebindListener = {
                             requestRebindNotificationListener(context)
                             listenerEnabled = isNotificationListenerEnabled(context)
-                            toast(context, "\u5df2\u8bf7\u6c42\u91cd\u8fde\u901a\u77e5\u76d1\u542c")
+                            toast(context, appStrings.text("已请求重连通知监听"))
                         },
                         onResetListenerComponent = {
                             resetNotificationListenerComponent(context)
                             requestRebindNotificationListener(context)
                             listenerEnabled = isNotificationListenerEnabled(context)
-                            toast(context, "\u5df2\u91cd\u7f6e\u7ec4\u4ef6\u7ed1\u5b9a\u5e76\u8bf7\u6c42\u91cd\u8fde")
+                            toast(context, appStrings.text("已重置组件绑定并请求重连"))
                         },
                         onRequestIgnoreBatteryOptimization = {
                             requestIgnoreBatteryOptimization(context)
                         },
                         onRequestPostNotificationPermission = {
                             if (hasPostNotificationPermission(context)) {
-                                toast(context, "\u901a\u77e5\u53d1\u9001\u6743\u9650\u5df2\u5f00\u542f")
+                                toast(context, appStrings.text("通知发送权限已开启"))
                             } else {
                                 requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                             }
@@ -369,7 +583,7 @@ private fun NonoApp() {
                             val updatedConfig = holidayConfig.copy(useChinaWorkdayCalendar = enabled)
                             holidayConfig = updatedConfig
                             holidayCalendarStore.saveConfig(updatedConfig)
-                            calendarStatus = if (enabled) updatedConfig.lastSyncLabel() else "已关闭中国工作日历"    
+                            calendarStatus = if (enabled) updatedConfig.lastSyncLabel() else appStrings.text("已关闭中国工作日历")
                         },
                         onCalendarUrlChange = { remoteUrl ->
                             val updatedConfig = holidayConfig.copy(remoteUrl = remoteUrl.trim())
@@ -378,7 +592,7 @@ private fun NonoApp() {
                         },
                         onCalendarSync = {
                             scope.launch {
-                                calendarStatus = "同步中..."
+                                calendarStatus = appStrings.text("同步中...")
                                 val result = withContext(Dispatchers.IO) {
                                     holidayCalendarStore.syncNow()
                                 }
@@ -402,7 +616,7 @@ private fun NonoApp() {
                         onAddOverride = { dateText, isWorkday, note ->
                             val date = runCatching { LocalDate.parse(dateText.trim()) }.getOrNull()
                             if (date == null) {
-                                toast(context, "日期格式请使用 YYYY-MM-DD")
+                                toast(context, appStrings.text("日期格式请使用 YYYY-MM-DD"))
                             } else {
                                 holidayCalendarStore.addOverride(
                                     ManualDayOverride(
@@ -412,18 +626,23 @@ private fun NonoApp() {
                                     ),
                                 )
                                 manualOverrides = holidayCalendarStore.loadOverrides()
-                                toast(context, "已保存日期覆盖")
+                                toast(context, appStrings.text("已保存日期覆盖"))
                             }
                         },
                         onDeleteOverride = { date ->
                             holidayCalendarStore.removeOverride(date)
                             manualOverrides = holidayCalendarStore.loadOverrides()
                         },
+                        onLanguageChange = { language ->
+                            languageSetting = language
+                            saveLanguageSetting(context, language)
+                        },
                         modifier = Modifier.padding(innerPadding),
                     )
                 }
             }
         }
+    }
     }
 }
 
@@ -445,14 +664,14 @@ private fun RulesTab(
     ) {
 //        item {
 //            IntroCard(
-//                title = "\u89c4\u5219",
+//                title = "规则",
 //                subtitle = "",
 //            )
 //        }
 
         if (rules.isEmpty()) {
             item {
-                EmptyStateCard("\u5f53\u524d\u8fd8\u6ca1\u6709\u89c4\u5219\uff0c\u53bb\u201c\u65b0\u589e\u914d\u7f6e\u201d\u91cc\u6dfb\u52a0\u7b2c\u4e00\u6761\u89c4\u5219\u3002")
+                EmptyStateCard("当前还没有规则，去“新增配置”里添加第一条规则。")
             }
         } else {
             itemsIndexed(rules, key = { _, rule -> rule.id }) { _, rule ->
@@ -512,14 +731,14 @@ private fun NotificationsTab(
     ) {
 //        item {
 //            IntroCard(
-//                title = "\u901a\u77e5",
+//                title = "通知",
 //                subtitle = "",
 //            )
 //        }
 
         if (delayedGrouped.isEmpty()) {
             item {
-                EmptyStateCard("\u6682\u65f6\u6ca1\u6709\u5ef6\u540e\u4e2d\u7684\u901a\u77e5\u3002")
+                EmptyStateCard("暂时没有延后中的通知。")
             }
         } else {
             delayedGrouped.forEach { (groupKey, groupNotices) ->
@@ -547,15 +766,15 @@ private fun NotificationsTab(
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(appLabel, fontWeight = FontWeight.SemiBold)
-                                    Text("$timeLabel · ${groupNotices.size} \u6761", style = MaterialTheme.typography.bodySmall)
+                                    Text("$timeLabel · ${groupNotices.size} ${s("条")}", style = MaterialTheme.typography.bodySmall)
                                 }
                                 Button(onClick = { onNotifyGroupNow(groupNotices) }) {
-                                    Text("\u7acb\u5373\u901a\u77e5")
+                                    Text(s("立即通知"))
                                 }
                                 IconButton(onClick = { onDeleteGroup(groupNotices.map { it.id }) }) {
                                     Icon(
                                         imageVector = Icons.Outlined.Delete,
-                                        contentDescription = "\u5220\u9664\u6574\u7ec4",
+                                        contentDescription = s("删除整组"),
                                     )
                                 }
                                 Icon(
@@ -588,7 +807,7 @@ private fun NotificationsTab(
                                         IconButton(onClick = { onDeleteNotice(notice) }) {
                                             Icon(
                                                 imageVector = Icons.Outlined.Delete,
-                                                contentDescription = "\u5220\u9664",
+                                                contentDescription = s("删除"),
                                             )
                                         }
                                     }
@@ -602,7 +821,7 @@ private fun NotificationsTab(
 
         if (collectedGrouped.isEmpty()) {
             item {
-                EmptyStateCard("\u6682\u65f6\u6ca1\u6709\u5df2\u6536\u96c6\u7684\u901a\u77e5\u3002")
+                EmptyStateCard("暂时没有已收集的通知。")
             }
         } else {
             collectedGrouped.forEach { (groupKey, groupNotices) ->
@@ -629,15 +848,15 @@ private fun NotificationsTab(
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(appLabel, fontWeight = FontWeight.SemiBold)
-                                    Text("${groupNotices.size} \u6761", style = MaterialTheme.typography.bodySmall)
+                                    Text("${groupNotices.size} ${s("条")}", style = MaterialTheme.typography.bodySmall)
                                 }
                                 Button(onClick = { onNotifyGroupNow(groupNotices) }) {
-                                    Text("\u7acb\u5373\u901a\u77e5")
+                                    Text(s("立即通知"))
                                 }
                                 IconButton(onClick = { onDeleteGroup(groupNotices.map { it.id }) }) {
                                     Icon(
                                         imageVector = Icons.Outlined.Delete,
-                                        contentDescription = "\u5220\u9664\u6574\u7ec4",
+                                        contentDescription = s("删除整组"),
                                     )
                                 }
                                 Icon(
@@ -670,7 +889,7 @@ private fun NotificationsTab(
                                         IconButton(onClick = { onDeleteNotice(notice) }) {
                                             Icon(
                                                 imageVector = Icons.Outlined.Delete,
-                                                contentDescription = "\u5220\u9664",
+                                                contentDescription = s("删除"),
                                             )
                                         }
                                     }
@@ -724,7 +943,7 @@ private fun AddRuleTab(
     ) {
 //        item {
 //            IntroCard(
-//                title = "\u914d\u7f6e",
+//                title = "配置",
 //                subtitle = "",
 //            )
 //        }
@@ -745,7 +964,7 @@ private fun AddRuleTab(
                         },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text(if (showSearchBar) "\u6536\u8d77\u641c\u7d22\u680f" else "\u5c55\u5f00\u641c\u7d22\u680f")
+                        Text(if (showSearchBar) s("收起搜索栏") else s("展开搜索栏"))
                     }
 
                     if (showSearchBar) {
@@ -757,15 +976,15 @@ private fun AddRuleTab(
                             },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
-                            label = { Text("\u641c\u7d22\u5df2\u5b89\u88c5\u5e94\u7528") },
-                            placeholder = { Text("\u8f93\u5165\u5e94\u7528\u540d\u6216\u5305\u540d\u7684\u4e00\u90e8\u5206") },
+                            label = { Text(s("搜索已安装应用")) },
+                            placeholder = { Text(s("输入应用名或包名的一部分")) },
                             leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
                         )
 
                         if (searchQuery.isNotBlank()) {
                             AppListCard(
                                 apps = filteredApps,
-                                emptyText = "\u6ca1\u6709\u627e\u5230\u5339\u914d\u5e94\u7528\uff0c\u53ef\u4ee5\u624b\u52a8\u586b\u5199\u5305\u540d\u3002",
+                                emptyText = "没有找到匹配应用，可以手动填写包名。",
                                 onSelect = { app ->
                                     appName = app.label
                                     packageName = app.packageName
@@ -779,12 +998,12 @@ private fun AddRuleTab(
 
                     if (searchQuery.isBlank()) {
                         Button(onClick = { showAllApps = !showAllApps }, modifier = Modifier.fillMaxWidth()) {
-                            Text(if (showAllApps) "\u6536\u8d77\u5168\u90e8\u5e94\u7528" else "\u5c55\u5f00\u5168\u90e8\u5e94\u7528")
+                            Text(if (showAllApps) s("收起全部应用") else s("展开全部应用"))
                         }
                         if (showAllApps) {
                             AppListCard(
                                 apps = installedApps,
-                                emptyText = "\u6ca1\u6709\u8bfb\u53d6\u5230\u5e94\u7528\u5217\u8868\u3002",
+                                emptyText = "没有读取到应用列表。",
                                 onSelect = { app ->
                                     appName = app.label
                                     packageName = app.packageName
@@ -796,7 +1015,7 @@ private fun AddRuleTab(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Switch(checked = enabled, onCheckedChange = { enabled = it })
                         Spacer(modifier = Modifier.width(10.dp))
-                        Text("\u89c4\u5219\u542f\u7528", fontWeight = FontWeight.SemiBold)
+                        Text(s("规则启用"), fontWeight = FontWeight.SemiBold)
                     }
 
                     RuleFormFields(
@@ -832,7 +1051,7 @@ private fun AddRuleTab(
                         onClick = {
                             onAdd(
                                 NotificationRule(
-                                    appName = appName.ifBlank { "\u672a\u547d\u540d\u5e94\u7528" },
+                                    appName = appName.ifBlank { "未命名应用" },
                                     packageName = packageName.trim(),
                                     note = note.trim(),
                                     enabled = enabled,
@@ -870,7 +1089,7 @@ private fun AddRuleTab(
                     ) {
                         Icon(Icons.Outlined.CheckCircle, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("\u4fdd\u5b58\u914d\u7f6e")
+                        Text(s("保存配置"))
                     }
                 }
             }
@@ -884,6 +1103,7 @@ private fun SettingsTab(
     holidayConfig: HolidayCalendarConfig,
     manualOverrides: List<ManualDayOverride>,
     calendarStatus: String,
+    languageSetting: AppLanguage,
     onRefresh: () -> Unit,
     onRebindListener: () -> Unit,
     onResetListenerComponent: () -> Unit,
@@ -898,9 +1118,11 @@ private fun SettingsTab(
     onCalendarSync: () -> Unit,
     onAddOverride: (String, Boolean, String) -> Unit,
     onDeleteOverride: (LocalDate) -> Unit,
+    onLanguageChange: (AppLanguage) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
+    val strings = LocalAppStrings.current
     val hasPostNotificationPermission = hasPostNotificationPermission(context)
     val canScheduleExactAlarms =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
@@ -942,10 +1164,35 @@ private fun SettingsTab(
     ) {
 //        item {
 //                IntroCard(
-//                    title = "\u8bbe\u7f6e",
+//                    title = "设置",
 //                    subtitle = "",
 //                )
 //            }
+
+        item {
+            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F7F4)), shape = RoundedCornerShape(24.dp)) {
+                Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(s("语言"), fontWeight = FontWeight.SemiBold)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = languageSetting == AppLanguage.System,
+                            onClick = { onLanguageChange(AppLanguage.System) },
+                            label = { Text(s("跟随系统")) },
+                        )
+                        FilterChip(
+                            selected = languageSetting == AppLanguage.Chinese,
+                            onClick = { onLanguageChange(AppLanguage.Chinese) },
+                            label = { Text(s("中文")) },
+                        )
+                        FilterChip(
+                            selected = languageSetting == AppLanguage.English,
+                            onClick = { onLanguageChange(AppLanguage.English) },
+                            label = { Text(s("英文")) },
+                        )
+                    }
+                }
+            }
+        }
 
         item {
             Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F7F4)), shape = RoundedCornerShape(24.dp)) {
@@ -954,83 +1201,83 @@ private fun SettingsTab(
                         Icon(Icons.Outlined.Notifications, contentDescription = null)
                         Spacer(modifier = Modifier.width(10.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("\u901a\u77e5\u8bbf\u95ee\u6743\u9650", fontWeight = FontWeight.SemiBold)
+                            Text(s("通知访问权限"), fontWeight = FontWeight.SemiBold)
                             Text(
-                                if (listenerEnabled) "\u5df2\u5f00\u542f\uff0c\u53ef\u6309\u89c4\u5219\u62e6\u622a\u901a\u77e5\u3002" else "\u672a\u5f00\u542f\uff0c\u89c4\u5219\u6682\u65f6\u4e0d\u4f1a\u751f\u6548\u3002",
+                                if (listenerEnabled) s("已开启，可按规则拦截通知。") else s("未开启，规则暂时不会生效。"),
                                 style = MaterialTheme.typography.bodySmall,
                             )
                         }
-                        AssistChip(onClick = {}, label = { Text(if (listenerEnabled) "\u5df2\u5f00\u542f" else "\u672a\u5f00\u542f") })
+                        AssistChip(onClick = {}, label = { Text(if (listenerEnabled) s("已开启") else s("未开启")) })
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Button(onClick = onOpenSettings, modifier = Modifier.weight(1f)) { Text("\u6253\u5f00\u7cfb\u7edf\u8bbe\u7f6e") }
-                        Button(onClick = onRefresh, modifier = Modifier.weight(1f)) { Text("\u5237\u65b0\u72b6\u6001") }
+                        Button(onClick = onOpenSettings, modifier = Modifier.weight(1f)) { Text(s("打开系统设置")) }
+                        Button(onClick = onRefresh, modifier = Modifier.weight(1f)) { Text(s("刷新状态")) }
                     }
                     Button(onClick = onRebindListener, modifier = Modifier.fillMaxWidth()) {
-                        Text("\u91cd\u8fde\u901a\u77e5\u76d1\u542c\u670d\u52a1")
+                        Text(s("重连通知监听服务"))
                     }
                     Button(onClick = onResetListenerComponent, modifier = Modifier.fillMaxWidth()) {
-                        Text("\u91cd\u7f6e\u76d1\u542c\u7ec4\u4ef6\u7ed1\u5b9a")
+                        Text(s("重置监听组件绑定"))
                     }
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !hasPostNotificationPermission) {
                         Button(onClick = onRequestPostNotificationPermission, modifier = Modifier.fillMaxWidth()) {
-                            Text("\u7533\u8bf7\u901a\u77e5\u53d1\u9001\u6743\u9650")
+                            Text(s("申请通知发送权限"))
                         }
                     }
                     Text(
-                        text = "\u901a\u77e5\u53d1\u9001\u6743\u9650: " + if (hasPostNotificationPermission) "\u5df2\u5f00\u542f" else "\u672a\u5f00\u542f",
+                        text = "${s("通知发送权限")}: " + if (hasPostNotificationPermission) s("已开启") else s("未开启"),
                         style = MaterialTheme.typography.bodySmall,
                     )
                     Text(
-                        text = "\u7cbe\u786e\u95f9\u949f: " + if (canScheduleExactAlarms) "\u53ef\u7528" else "\u53d7\u9650\uff08\u5ef6\u540e\u63d0\u9192\u53ef\u80fd\u4e0d\u51c6\u65f6\uff09",
+                        text = "${s("精确闹钟")}: " + if (canScheduleExactAlarms) s("可用") else s("受限（延后提醒可能不准时）"),
                         style = MaterialTheme.typography.bodySmall,
                     )
                     Text(
-                        text = "\u7535\u6c60\u4f18\u5316\u8c41\u514d: " + if (ignoringBatteryOptimizations) "\u5df2\u5f00\u542f" else "\u672a\u5f00\u542f\uff08\u79bb\u5f00 App \u540e\u53ef\u80fd\u88ab\u9650\u5236\uff09",
+                        text = "${s("电池优化豁免")}: " + if (ignoringBatteryOptimizations) s("已开启") else s("未开启（离开 App 后可能被限制）"),
                         style = MaterialTheme.typography.bodySmall,
                     )
                     if (!ignoringBatteryOptimizations) {
                         Button(onClick = onRequestIgnoreBatteryOptimization, modifier = Modifier.fillMaxWidth()) {
-                            Text("\u7533\u8bf7\u5ffd\u7565\u7535\u6c60\u4f18\u5316")
+                            Text(s("申请忽略电池优化"))
                         }
                     }
                     Text(
                         text = if (listenerDiagnostic.isNotBlank()) {
-                            "\u76d1\u542c\u8bca\u65ad: $listenerDiagnostic"
+                            "${s("监听诊断")}: $listenerDiagnostic"
                         } else {
-                            "\u76d1\u542c\u8bca\u65ad: \u5c1a\u672a\u6536\u5230\u76d1\u542c\u56de\u8c03\uff08\u5982\u679c\u5df2\u89e6\u53d1\u901a\u77e5\uff0c\u8bf7\u91cd\u8fde\u76d1\u542c\u670d\u52a1\u540e\u518d\u89c2\u5bdf\uff09"
+                            "${s("监听诊断")}: ${s("尚未收到监听回调（如果已触发通知，请重连监听服务后再观察）")}"
                         },
                         style = MaterialTheme.typography.bodySmall,
                     )
                     Text(
-                        text = "\u76d1\u542c\u5e95\u5c42\u72b6\u6001: $listenerTechStatus",
+                        text = "${s("监听底层状态")}: $listenerTechStatus",
                         style = MaterialTheme.typography.bodySmall,
                     )
-                    Text("\u540e\u53f0\u9a7b\u7559\u53c2\u6570\uff08\u79d2\uff09", fontWeight = FontWeight.SemiBold)
+                    Text(s("后台驻留参数（秒）"), fontWeight = FontWeight.SemiBold)
                     OutlinedTextField(
                         value = rebindIntervalSecText,
                         onValueChange = { rebindIntervalSecText = it.filter(Char::isDigit) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        label = { Text("\u76d1\u542c\u91cd\u8fde\u95f4\u9694") },
+                        label = { Text(s("监听重连间隔")) },
                     )
                     OutlinedTextField(
                         value = activeCheckIntervalSecText,
                         onValueChange = { activeCheckIntervalSecText = it.filter(Char::isDigit) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        label = { Text("\u6d3b\u8dc3\u68c0\u67e5\u95f4\u9694") },
+                        label = { Text(s("活跃检查间隔")) },
                     )
                     OutlinedTextField(
                         value = idleCheckIntervalSecText,
                         onValueChange = { idleCheckIntervalSecText = it.filter(Char::isDigit) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        label = { Text("\u7a7a\u95f2\u68c0\u67e5\u95f4\u9694") },
+                        label = { Text(s("空闲检查间隔")) },
                     )
-                    Text("\u91cd\u53d1\u65b9\u6cd5", fontWeight = FontWeight.SemiBold)
+                    Text(s("重发方法"), fontWeight = FontWeight.SemiBold)
                     Text(
-                        "\u53ef\u5206\u522b\u6d4b\u8bd5\u666e\u901a\u3001\u590d\u7528\u610f\u56fe\u3001\u4ee3\u7406\u56de\u653e\u3001\u6c14\u6ce1\u3001\u5168\u5c4f\u3001\u539f\u95f9\u949f\u3002",
+                        s("可分别测试普通、复用意图、代理回放、气泡、全屏、原闹钟。"),
                         style = MaterialTheme.typography.bodySmall,
                     )
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1038,51 +1285,51 @@ private fun SettingsTab(
                             FilterChip(
                                 selected = resendPriority == ResendTriggerPriority.NORMAL_ONLY.name,
                                 onClick = { resendPriority = ResendTriggerPriority.NORMAL_ONLY.name },
-                                label = { Text("\u4ec5\u666e\u901a\u91cd\u53d1") },
+                                label = { Text(s("仅普通重发")) },
                             )
                             FilterChip(
                                 selected = resendPriority == ResendTriggerPriority.NORMAL_FIRST.name,
                                 onClick = { resendPriority = ResendTriggerPriority.NORMAL_FIRST.name },
-                                label = { Text("\u666e\u901a\u4f18\u5148") },
+                                label = { Text(s("普通优先")) },
                             )
                             FilterChip(
                                 selected = resendPriority == ResendTriggerPriority.FIDELITY_FIRST.name,
                                 onClick = { resendPriority = ResendTriggerPriority.FIDELITY_FIRST.name },
-                                label = { Text("\u4fdd\u771f\u4f18\u5148") },
+                                label = { Text(s("保真优先")) },
                             )
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             FilterChip(
                                 selected = resendPriority == ResendTriggerPriority.REUSE_INTENT.name,
                                 onClick = { resendPriority = ResendTriggerPriority.REUSE_INTENT.name },
-                                label = { Text("\u590d\u7528\u610f\u56fe") },
+                                label = { Text(s("复用意图")) },
                             )
                             FilterChip(
                                 selected = resendPriority == ResendTriggerPriority.PROXY_REPLAY.name,
                                 onClick = { resendPriority = ResendTriggerPriority.PROXY_REPLAY.name },
-                                label = { Text("\u4ee3\u7406\u56de\u653e") },
+                                label = { Text(s("代理回放")) },
                             )
                             FilterChip(
                                 selected = resendPriority == ResendTriggerPriority.BUBBLE_FIRST.name,
                                 onClick = { resendPriority = ResendTriggerPriority.BUBBLE_FIRST.name },
-                                label = { Text("\u6c14\u6ce1\u4f18\u5148") },
+                                label = { Text(s("气泡优先")) },
                             )
                             FilterChip(
                                 selected = resendPriority == ResendTriggerPriority.FULL_SCREEN_FIRST.name,
                                 onClick = { resendPriority = ResendTriggerPriority.FULL_SCREEN_FIRST.name },
-                                label = { Text("\u5168\u5c4f\u4f18\u5148") },
+                                label = { Text(s("全屏优先")) },
                             )
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             FilterChip(
                                 selected = resendPriority == ResendTriggerPriority.ALARM_ONLY.name,
                                 onClick = { resendPriority = ResendTriggerPriority.ALARM_ONLY.name },
-                                label = { Text("\u539f\u95f9\u949f") },
+                                label = { Text(s("原闹钟")) },
                             )
                             FilterChip(
                                 selected = resendPriority == ResendTriggerPriority.ALARM_FIRST.name,
                                 onClick = { resendPriority = ResendTriggerPriority.ALARM_FIRST.name },
-                                label = { Text("\u95f9\u949f\u4f18\u5148") },
+                                label = { Text(s("闹钟优先")) },
                             )
                         }
                     }
@@ -1101,11 +1348,11 @@ private fun SettingsTab(
                                 .getOrDefault(ResendTriggerPriority.NORMAL_FIRST)
                             RuntimeTuningSettingsStore.saveResendTriggerPriority(context, priority)
                             restartListenerKeepAliveService(context)
-                            toast(context, "\u540e\u53f0\u53c2\u6570\u5df2\u4fdd\u5b58\u5e76\u751f\u6548")
+                            toast(context, strings.text("后台参数已保存并生效"))
                         },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text("\u4fdd\u5b58\u540e\u53f0\u53c2\u6570")
+                        Text(s("保存后台参数"))
                     }
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !canScheduleExactAlarms) {
                         Button(
@@ -1114,11 +1361,11 @@ private fun SettingsTab(
                             },
                             modifier = Modifier.fillMaxWidth(),
                         ) {
-                            Text("\u6253\u5f00\u7cbe\u786e\u95f9\u949f\u8bbe\u7f6e")
+                            Text(s("打开精确闹钟设置"))
                         }
                     }
                     Button(onClick = onOpenPolicySettings, modifier = Modifier.fillMaxWidth()) {
-                        Text("\u6253\u5f00\u52ff\u6270\u8bbf\u95ee")
+                        Text(s("打开勿扰访问"))
                     }
                 }
             }
@@ -1127,7 +1374,7 @@ private fun SettingsTab(
         item {
             Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F7F4)), shape = RoundedCornerShape(24.dp)) {
                 Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("后台驻留步骤", fontWeight = FontWeight.SemiBold)
+                    Text(s("后台驻留步骤"), fontWeight = FontWeight.SemiBold)
 //                    Text(
 //                        "用于提升后台存活率（尤其华为/荣耀）。建议依次完成以下设置：",
 //                        style = MaterialTheme.typography.bodySmall,
@@ -1135,28 +1382,28 @@ private fun SettingsTab(
                     Button(
                         onClick = {
                             val ok = openAutostartSettings(context)
-                            if (!ok) toast(context, "未找到自启动管理入口，请手动在系统管家中设置")
+                            if (!ok) toast(context, strings.text("未找到自启动管理入口，请手动在系统管家中设置"))
                         },
                         modifier = Modifier.fillMaxWidth(),
-                    ) { Text("1. 打开自启动管理") }
+                    ) { Text(s("1. 打开自启动管理")) }
                     Button(
                         onClick = {
                             val ok = openBackgroundRunSettings(context)
-                            if (!ok) toast(context, "未找到后台运行入口，请手动在电池/应用启动中设置")
+                            if (!ok) toast(context, strings.text("未找到后台运行入口，请手动在电池/应用启动中设置"))
                         },
                         modifier = Modifier.fillMaxWidth(),
-                    ) { Text("2. 打开后台运行/应用启动") }
+                    ) { Text(s("2. 打开后台运行/应用启动")) }
                     Button(
                         onClick = {
                             val ok = openPowerOptimizationSettings(context)
-                            if (!ok) toast(context, "未找到耗电保护入口，请手动在电池设置中配置")
+                            if (!ok) toast(context, strings.text("未找到耗电保护入口，请手动在电池设置中配置"))
                         },
                         modifier = Modifier.fillMaxWidth(),
-                    ) { Text("3. 打开耗电保护设置") }
+                    ) { Text(s("3. 打开耗电保护设置")) }
                     Button(
                         onClick = { openAppDetailsSettings(context) },
                         modifier = Modifier.fillMaxWidth(),
-                    ) { Text("4. 打开应用详情（检查）") }
+                    ) { Text(s("4. 打开应用详情（检查）")) }
                 }
             }
         }
@@ -1164,7 +1411,7 @@ private fun SettingsTab(
         item {
             Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F7F4)), shape = RoundedCornerShape(24.dp)) {
                 Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Text("工作日历", fontWeight = FontWeight.SemiBold)
+                    Text(s("工作日历"), fontWeight = FontWeight.SemiBold)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Switch(
                             checked = holidayConfig.useChinaWorkdayCalendar,
@@ -1172,7 +1419,7 @@ private fun SettingsTab(
                         )
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
-                            Text("按工作日/调休判断", fontWeight = FontWeight.SemiBold)
+                            Text(s("按工作日/调休判断"), fontWeight = FontWeight.SemiBold)
                         }
                     }
                     OutlinedTextField(
@@ -1180,7 +1427,7 @@ private fun SettingsTab(
                         onValueChange = onCalendarUrlChange,
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        label = { Text("在线日历地址") },
+                        label = { Text(s("在线日历地址")) },
                         placeholder = { Text("https://timor.tech/api/holiday/year") },
                     )
                     Text(holidayConfig.lastSyncLabel(), style = MaterialTheme.typography.bodySmall)
@@ -1190,7 +1437,7 @@ private fun SettingsTab(
                     Button(onClick = onCalendarSync, modifier = Modifier.fillMaxWidth()) {
                         Icon(Icons.Outlined.Refresh, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("同步到本地")
+                        Text(s("同步到本地"))
                     }
                 }
             }
@@ -1199,13 +1446,13 @@ private fun SettingsTab(
         item {
             Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F7F4)), shape = RoundedCornerShape(24.dp)) {
                 Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Text("请假与调休", fontWeight = FontWeight.SemiBold)
+                    Text(s("请假与调休"), fontWeight = FontWeight.SemiBold)
                     OutlinedTextField(
                         value = overrideDateText,
                         onValueChange = { overrideDateText = it },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        label = { Text("日期") },
+                        label = { Text(s("日期")) },
                         placeholder = { Text("2010-01-02") },
                     )
                     OutlinedTextField(
@@ -1213,19 +1460,19 @@ private fun SettingsTab(
                         onValueChange = { overrideNoteText = it },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        label = { Text("备注") },
-                        placeholder = { Text("例如：年假 / 周日补班") },
+                        label = { Text(s("备注")) },
+                        placeholder = { Text(s("例如：年假 / 周日补班")) },
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(
                             selected = !overrideIsWorkday,
                             onClick = { overrideIsWorkday = false },
-                            label = { Text("请假/休息") },
+                            label = { Text(s("请假/休息")) },
                         )
                         FilterChip(
                             selected = overrideIsWorkday,
                             onClick = { overrideIsWorkday = true },
-                            label = { Text("调休加班") },
+                            label = { Text(s("调休加班")) },
                         )
                     }
                     Button(
@@ -1237,17 +1484,17 @@ private fun SettingsTab(
                         },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text("保存日期覆盖")
+                        Text(s("保存日期覆盖"))
                     }
 
                     if (manualOverrides.isEmpty()) {
-                        Text("暂时还没有手动日期覆盖。", style = MaterialTheme.typography.bodySmall)
+                        Text(s("暂时还没有手动日期覆盖。"), style = MaterialTheme.typography.bodySmall)
                     } else {
                         manualOverrides.forEach { override ->
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        "${override.date} · ${if (override.isWorkday) "调休加班" else "请假/休息"}",
+                                        "${override.date} · ${if (override.isWorkday) s("调休加班") else s("请假/休息")}",
                                         fontWeight = FontWeight.SemiBold,
                                     )
                                     if (override.note.isNotBlank()) {
@@ -1255,7 +1502,7 @@ private fun SettingsTab(
                                     }
                                 }
                                 IconButton(onClick = { onDeleteOverride(override.date) }) {
-                                    Icon(Icons.Outlined.Delete, contentDescription = "删除日期覆盖")
+                                    Icon(Icons.Outlined.Delete, contentDescription = s("删除日期覆盖"))
                                 }
                             }
                         }
@@ -1267,18 +1514,18 @@ private fun SettingsTab(
         item {
             Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F7F4)), shape = RoundedCornerShape(24.dp)) {
                 Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Text("\u914d\u7f6e\u7ba1\u7406", fontWeight = FontWeight.SemiBold)
-                    Text("\u5bfc\u51fa\u4f1a\u751f\u6210\u4e00\u4efd JSON \u6587\u4ef6\uff0c\u5bfc\u5165\u65f6\u4f1a\u8986\u76d6\u5f53\u524d\u672c\u5730\u89c4\u5219\u3002", style = MaterialTheme.typography.bodySmall)
+                    Text(s("配置管理"), fontWeight = FontWeight.SemiBold)
+                    Text(s("导出会生成一份 JSON 文件，导入时会覆盖当前本地规则。"), style = MaterialTheme.typography.bodySmall)
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Button(onClick = onExport, modifier = Modifier.weight(1f)) {
                             Icon(Icons.Outlined.FileDownload, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("\u5bfc\u51fa\u914d\u7f6e")
+                            Text(s("导出配置"))
                         }
                         Button(onClick = onImport, modifier = Modifier.weight(1f)) {
                             Icon(Icons.Outlined.FileUpload, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("\u5bfc\u5165\u914d\u7f6e")
+                            Text(s("导入配置"))
                         }
                     }
                 }
@@ -1288,10 +1535,10 @@ private fun SettingsTab(
 //        item {
 //            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F7F4)), shape = RoundedCornerShape(24.dp)) {
 //                Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-//                    Text("\u5e94\u7528\u5217\u8868\u6743\u9650\u9650\u5236", fontWeight = FontWeight.SemiBold)
-//                    Text("1. \u5df2\u7ecf\u542f\u7528 QUERY_ALL_PACKAGES \u6765\u83b7\u53d6\u5b8c\u6574\u5df2\u5b89\u88c5\u5e94\u7528\u5217\u8868\u3002")
-//                    Text("2. \u5f53\u524d Android \u5bf9\u7b2c\u4e09\u65b9 App \u7684\u66f4\u9ad8\u5e94\u7528\u5217\u8868\u6743\u9650\u57fa\u672c\u6ca1\u6709\u66f4\u4e0a\u4e00\u5c42\u3002")
-//                    Text("3. \u5982\u679c\u4ecd\u6709\u7f3a\u5931\uff0c\u5f88\u53ef\u80fd\u662f\u5de5\u4f5c Profile\u3001\u53cc\u5f00\u7a7a\u95f4\u6216 OEM \u79c1\u6709\u5bb9\u5668\u91cc\u7684\u5e94\u7528\uff0c\u666e\u901a App \u65e0\u6cd5\u5168\u90e8\u679a\u4e3e\u3002")
+//                    Text(s("应用列表权限限制"), fontWeight = FontWeight.SemiBold)
+//                    Text(s("1. 已经启用 QUERY_ALL_PACKAGES 来获取完整已安装应用列表。"))
+//                    Text(s("2. 当前 Android 对第三方 App 的更高应用列表权限基本没有更上一层。"))
+//                    Text(s("3. 如果仍有缺失，很可能是工作 Profile、双开空间或 OEM 私有容器里的应用，普通 App 无法全部枚举。"))
 //                }
 //            }
 //        }
@@ -1337,7 +1584,7 @@ private fun AppListCard(
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         if (apps.isEmpty()) {
-            Text(emptyText, modifier = Modifier.padding(12.dp), style = MaterialTheme.typography.bodySmall)
+            Text(s(emptyText), modifier = Modifier.padding(12.dp), style = MaterialTheme.typography.bodySmall)
         } else {
             apps.forEach { app ->
                 AppSuggestionRow(app = app, onClick = { onSelect(app) })
@@ -1364,13 +1611,13 @@ private fun AppSuggestionRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(app.label, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
-                text = if (app.isSystemApp) "${app.packageName} \u00b7 \u7cfb\u7edf\u5e94\u7528" else app.packageName,
+                text = if (app.isSystemApp) "${app.packageName} · ${s("系统应用")}" else app.packageName,
                 style = MaterialTheme.typography.bodySmall,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        Text("\u9009\u62e9", color = Color(0xFF57675E), fontWeight = FontWeight.SemiBold)
+        Text(s("选择"), color = Color(0xFF57675E), fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -1426,9 +1673,9 @@ private fun RuleFormFields(
     targetsText: String,
     onTargetsTextChange: (String) -> Unit,
 ) {
-    OutlinedTextField(value = appName, onValueChange = onAppNameChange, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("\u5e94\u7528\u540d\u79f0") })
-    OutlinedTextField(value = packageName, onValueChange = onPackageNameChange, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("\u5305\u540d") }, placeholder = { Text("\u4f8b\u5982 com.tencent.mm") })
-    OutlinedTextField(value = note, onValueChange = onNoteChange, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("\u5907\u6ce8") }, placeholder = { Text("\u4f8b\u5982\uff1a\u8001\u677f\u767d\u540d\u5355") })
+    OutlinedTextField(value = appName, onValueChange = onAppNameChange, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text(s("应用名称")) })
+    OutlinedTextField(value = packageName, onValueChange = onPackageNameChange, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text(s("包名")) }, placeholder = { Text(s("例如 com.tencent.mm")) })
+    OutlinedTextField(value = note, onValueChange = onNoteChange, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text(s("备注")) }, placeholder = { Text(s("例如：老板白名单")) })
 
     ModeSelector(selectedMode = mode, onModeChange = onModeChange)
     RuleDayModeSelector(selectedMode = dayMode, onModeChange = onDayModeChange)
@@ -1438,9 +1685,9 @@ private fun RuleFormFields(
             onValueChange = onRemindAtTextChange,
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            label = { Text("\u63d0\u9192\u65f6\u95f4") },
+            label = { Text(s("提醒时间")) },
             placeholder = { Text("09:00") },
-            supportingText = { Text("\u5339\u914d\u5230\u89c4\u5219\u540e\uff0cNono \u4f1a\u5728\u4e0b\u4e00\u4e2a\u7b26\u5408\u6761\u4ef6\u7684 HH:mm \u65f6\u95f4\u53d1\u51fa\u672c\u5730\u63d0\u9192\u3002") },
+            supportingText = { Text(s("匹配到规则后，Nono 会在下一个符合条件的 HH:mm 时间发出本地提醒。")) },
         )
     }
     SoundModeSelector(selectedMode = soundMode, onModeChange = onSoundModeChange)
@@ -1448,18 +1695,18 @@ private fun RuleFormFields(
     Row(verticalAlignment = Alignment.CenterVertically) {
         Switch(checked = allDay, onCheckedChange = onAllDayChange)
         Spacer(modifier = Modifier.width(10.dp))
-        Text("\u5168\u5929", fontWeight = FontWeight.SemiBold)
+        Text(s("全天"), fontWeight = FontWeight.SemiBold)
     }
 
     if (!allDay) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedTextField(value = startText, onValueChange = onStartTextChange, modifier = Modifier.weight(1f), singleLine = true, label = { Text("\u5f00\u59cb\u65f6\u95f4") }, placeholder = { Text("09:00") })
-            OutlinedTextField(value = endText, onValueChange = onEndTextChange, modifier = Modifier.weight(1f), singleLine = true, label = { Text("\u7ed3\u675f\u65f6\u95f4") }, placeholder = { Text("18:00") })
+            OutlinedTextField(value = startText, onValueChange = onStartTextChange, modifier = Modifier.weight(1f), singleLine = true, label = { Text(s("开始时间")) }, placeholder = { Text("09:00") })
+            OutlinedTextField(value = endText, onValueChange = onEndTextChange, modifier = Modifier.weight(1f), singleLine = true, label = { Text(s("结束时间")) }, placeholder = { Text("18:00") })
         }
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("\u751f\u6548\u65e5\u671f", fontWeight = FontWeight.SemiBold)
+        Text(s("生效日期"), fontWeight = FontWeight.SemiBold)
         val dayChips = listOf<DayOfWeek?>(null) + weekDays
         dayChips.chunked(4).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1468,7 +1715,7 @@ private fun RuleFormFields(
                         FilterChip(
                             selected = selectedDays.size == weekDays.size,
                             onClick = { onSelectedDaysChange(weekDays.toSet()) },
-                            label = { Text("\u5168\u90e8") },
+                            label = { Text(s("全部")) },
                         )
                     } else {
                         FilterChip(
@@ -1478,7 +1725,7 @@ private fun RuleFormFields(
                                     if (day in selectedDays) selectedDays - day else selectedDays + day,
                                 )
                             },
-                            label = { Text(day.cnLabel) },
+                            label = { Text(s(day.cnLabel)) },
                         )
                     }
                 }
@@ -1490,8 +1737,8 @@ private fun RuleFormFields(
         Switch(checked = blockAll, onCheckedChange = onBlockAllChange)
         Spacer(modifier = Modifier.width(10.dp))
         Column {
-            Text("\u6574\u5305\u5339\u914d", fontWeight = FontWeight.SemiBold)
-            Text("\u5f00\u542f\u540e\u4f1a\u4f7f\u7528 * \u5339\u914d\u8be5\u5e94\u7528\u7684\u6240\u6709\u901a\u77e5\u3002", style = MaterialTheme.typography.bodySmall)
+            Text(s("整包匹配"), fontWeight = FontWeight.SemiBold)
+            Text(s("开启后会使用 * 匹配该应用的所有通知。"), style = MaterialTheme.typography.bodySmall)
         }
     }
 
@@ -1500,14 +1747,14 @@ private fun RuleFormFields(
         onValueChange = onTargetsTextChange,
         modifier = Modifier.fillMaxWidth(),
         minLines = 4,
-        label = { Text("\u5173\u952e\u5b57") },
-        placeholder = { Text("\u6bcf\u884c\u4e00\u4e2a\u8054\u7cfb\u4eba\u540d\u3001\u7fa4\u540d\u6216\u9891\u9053\u540d") },
+        label = { Text(s("关键字")) },
+        placeholder = { Text(s("每行一个联系人名、群名或频道名")) },
         supportingText = {
             Text(
                 if (blockAll) {
-                    "\u5f53\u524d\u5c06\u5ffd\u7565\u5173\u952e\u5b57\uff0c\u76f4\u63a5\u5339\u914d\u8be5\u5e94\u7528\u5168\u90e8\u901a\u77e5\u3002"
+                    s("当前将忽略关键字，直接匹配该应用全部通知。")
                 } else {
-                    "\u7559\u7a7a\u8868\u793a\u5339\u914d\u8be5\u5e94\u7528\u5168\u90e8\u901a\u77e5\uff1b\u4f8b\u5982\uff1a\u8001\u677f\u3001\u9879\u76ee\u7fa4\u3001\u503c\u73ed\u901a\u77e5"
+                    s("留空表示匹配该应用全部通知；例如：老板、项目群、值班通知")
                 },
             )
         },
@@ -1520,12 +1767,12 @@ private fun ModeSelector(
     onModeChange: (RuleMode) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("\u901a\u77e5\u6a21\u5f0f", fontWeight = FontWeight.SemiBold)
+        Text(s("通知模式"), fontWeight = FontWeight.SemiBold)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(selected = selectedMode == RuleMode.BLOCK, onClick = { onModeChange(RuleMode.BLOCK) }, label = { Text("\u5c4f\u853d") })
-            FilterChip(selected = selectedMode == RuleMode.ALLOW, onClick = { onModeChange(RuleMode.ALLOW) }, label = { Text("\u5141\u8bb8") })
-            FilterChip(selected = selectedMode == RuleMode.DELAY, onClick = { onModeChange(RuleMode.DELAY) }, label = { Text("\u5ef6\u540e") })
-            FilterChip(selected = selectedMode == RuleMode.COLLECT_ONLY, onClick = { onModeChange(RuleMode.COLLECT_ONLY) }, label = { Text("\u6536\u96c6") })
+            FilterChip(selected = selectedMode == RuleMode.BLOCK, onClick = { onModeChange(RuleMode.BLOCK) }, label = { Text(s("屏蔽")) })
+            FilterChip(selected = selectedMode == RuleMode.ALLOW, onClick = { onModeChange(RuleMode.ALLOW) }, label = { Text(s("允许")) })
+            FilterChip(selected = selectedMode == RuleMode.DELAY, onClick = { onModeChange(RuleMode.DELAY) }, label = { Text(s("延后")) })
+            FilterChip(selected = selectedMode == RuleMode.COLLECT_ONLY, onClick = { onModeChange(RuleMode.COLLECT_ONLY) }, label = { Text(s("收集")) })
         }
     }
 }
@@ -1536,11 +1783,11 @@ private fun RuleDayModeSelector(
     onModeChange: (RuleDayMode) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("\u89c4\u5219\u65e5\u7c7b\u578b", fontWeight = FontWeight.SemiBold)
+        Text(s("规则日类型"), fontWeight = FontWeight.SemiBold)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(selected = selectedMode == RuleDayMode.WORKDAY, onClick = { onModeChange(RuleDayMode.WORKDAY) }, label = { Text("\u5de5\u4f5c") })
-            FilterChip(selected = selectedMode == RuleDayMode.RESTDAY, onClick = { onModeChange(RuleDayMode.RESTDAY) }, label = { Text("\u4f11\u606f") })
-            FilterChip(selected = selectedMode == RuleDayMode.ALL, onClick = { onModeChange(RuleDayMode.ALL) }, label = { Text("\u5168\u90e8") })
+            FilterChip(selected = selectedMode == RuleDayMode.WORKDAY, onClick = { onModeChange(RuleDayMode.WORKDAY) }, label = { Text(s("工作")) })
+            FilterChip(selected = selectedMode == RuleDayMode.RESTDAY, onClick = { onModeChange(RuleDayMode.RESTDAY) }, label = { Text(s("休息")) })
+            FilterChip(selected = selectedMode == RuleDayMode.ALL, onClick = { onModeChange(RuleDayMode.ALL) }, label = { Text(s("全部")) })
         }
     }
 }
@@ -1550,7 +1797,7 @@ private fun SoundModeSelector(
     onModeChange: (DeviceSoundMode) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("\u7cfb\u7edf\u54cd\u94c3\u6a21\u5f0f", fontWeight = FontWeight.SemiBold)
+        Text(s("系统响铃模式"), fontWeight = FontWeight.SemiBold)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1558,25 +1805,25 @@ private fun SoundModeSelector(
             FilterChip(
                 selected = selectedMode == DeviceSoundMode.KEEP,
                 onClick = { onModeChange(DeviceSoundMode.KEEP) },
-                label = { Text("\u4fdd\u6301") },
+                label = { Text(s("保持")) },
                 modifier = Modifier.weight(1f),
             )
             FilterChip(
                 selected = selectedMode == DeviceSoundMode.RING,
                 onClick = { onModeChange(DeviceSoundMode.RING) },
-                label = { Text("\u54cd\u94c3") },
+                label = { Text(s("响铃")) },
                 modifier = Modifier.weight(1f),
             )
             FilterChip(
                 selected = selectedMode == DeviceSoundMode.VIBRATE,
                 onClick = { onModeChange(DeviceSoundMode.VIBRATE) },
-                label = { Text("\u9707\u52a8") },
+                label = { Text(s("震动")) },
                 modifier = Modifier.weight(1f),
             )
             FilterChip(
                 selected = selectedMode == DeviceSoundMode.SILENT,
                 onClick = { onModeChange(DeviceSoundMode.SILENT) },
-                label = { Text("\u9759\u97f3") },
+                label = { Text(s("静音")) },
                 modifier = Modifier.weight(1f),
             )
         }
@@ -1586,7 +1833,7 @@ private fun SoundModeSelector(
 @Composable
 private fun EmptyStateCard(message: String) {
     Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F7F4)), shape = RoundedCornerShape(22.dp)) {
-        Text(message, modifier = Modifier.padding(18.dp))
+        Text(s(message), modifier = Modifier.padding(18.dp))
     }
 }
 
@@ -1626,7 +1873,7 @@ private fun RuleEditorCard(
     fun persist() {
         onRuleChange(
             rule.copy(
-                appName = appName.ifBlank { "\u672a\u547d\u540d\u5e94\u7528" },
+                appName = appName.ifBlank { "未命名应用" },
                 packageName = packageName.trim(),
                 note = note.trim(),
                 enabled = enabled,
@@ -1660,9 +1907,9 @@ private fun RuleEditorCard(
                 AppIcon(drawable = appInfo?.icon, contentDescription = appName, size = 40.dp)
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(appName.ifBlank { "\u65b0\u89c4\u5219" }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text(appName.ifBlank { s("新规则") }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Text(
-                        text = note.ifBlank { packageName.ifBlank { "\u8bf7\u586b\u5199\u5305\u540d" } },
+                        text = note.ifBlank { packageName.ifBlank { s("请填写包名") } },
                         style = MaterialTheme.typography.bodySmall,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -1672,11 +1919,11 @@ private fun RuleEditorCard(
                     onClick = {},
                     label = {
                         Text(
-                            "${rule.dayModeLabel()} · " + when (mode) {
-                                RuleMode.BLOCK -> "\u5c4f\u853d"
-                                RuleMode.ALLOW -> "\u5141\u8bb8"
-                                RuleMode.DELAY -> "\u5ef6\u540e"
-                                RuleMode.COLLECT_ONLY -> "\u6536\u96c6"
+                            "${s(rule.dayModeLabel())} · " + when (mode) {
+                                RuleMode.BLOCK -> s("屏蔽")
+                                RuleMode.ALLOW -> s("允许")
+                                RuleMode.DELAY -> s("延后")
+                                RuleMode.COLLECT_ONLY -> s("收集")
                             },
                         )
                     },
@@ -1731,12 +1978,12 @@ private fun RuleEditorCard(
                     },
                 )
                 IconButton(onClick = onDelete) {
-                    Icon(Icons.Outlined.Delete, contentDescription = "\u5220\u9664\u89c4\u5219")
+                    Icon(Icons.Outlined.Delete, contentDescription = s("删除规则"))
                 }
             }
 
             val previewRule = rule.copy(
-                appName = appName.ifBlank { "\u672a\u547d\u540d\u5e94\u7528" },
+                appName = appName.ifBlank { "未命名应用" },
                 packageName = packageName.trim(),
                 note = note.trim(),
                 enabled = enabled,
@@ -1752,22 +1999,23 @@ private fun RuleEditorCard(
             )
             val previewTargets = previewRule.targets.joinToString(separator = " / ")
             val previewMode = when (previewRule.mode) {
-                RuleMode.BLOCK -> "\u5c4f\u853d"
-                RuleMode.ALLOW -> "\u5141\u8bb8"
-                RuleMode.DELAY -> "\u5ef6\u540e ${previewRule.remindAtMinutes.toHourMinute()}"
-                RuleMode.COLLECT_ONLY -> "\u6536\u96c6"
+                RuleMode.BLOCK -> s("屏蔽")
+                RuleMode.ALLOW -> s("允许")
+                RuleMode.DELAY -> "${s("延后")} ${previewRule.remindAtMinutes.toHourMinute()}"
+                RuleMode.COLLECT_ONLY -> s("收集")
             }
             val now = LocalDateTime.now()
             val context = androidx.compose.ui.platform.LocalContext.current
             val holidayCalendarStore = remember { HolidayCalendarStore(context) }
             val isWorkingDate = holidayCalendarStore.isWorkingDate(now.toLocalDate())
             val nowStatus = previewRule.currentTimeStatusLabel(now = now, isWorkingDate = isWorkingDate)
+            val previewDays = previewRule.activeDays.sortedBy { it.value }.joinToString(" ") { s(it.cnLabel) }
             Text(
-                text = "\u9884\u89c8: ${previewRule.dayModeLabel()} | $previewMode | ${previewRule.timeRangeLabel()} | ${previewRule.dayLabel()} | $previewTargets",
+                text = "${s("预览")}: ${s(previewRule.dayModeLabel())} | $previewMode | ${previewRule.timeRangeLabel()} | $previewDays | $previewTargets",
                 style = MaterialTheme.typography.bodySmall,
             )
             Text(
-                text = "\u5f53\u524d\u65f6\u95f4\u72b6\u6001: $nowStatus",
+                text = "${s("当前时间状态")}: ${s(nowStatus)}",
                 style = MaterialTheme.typography.bodySmall,
             )
 
@@ -2068,13 +2316,13 @@ private fun NotificationRule.currentTimeStatusLabel(
                 nowTime = now.toLocalTime(),
             )
 
-    if (!isActiveNow) return "\u4e0d\u751f\u6548"
+    if (!isActiveNow) return "不生效"
 
     return when (mode) {
-        RuleMode.BLOCK -> "\u5c4f\u853d"
-        RuleMode.ALLOW -> "\u5141\u8bb8"
-        RuleMode.DELAY -> "\u5ef6\u540e"
-        RuleMode.COLLECT_ONLY -> "\u6536\u96c6"
+        RuleMode.BLOCK -> "屏蔽"
+        RuleMode.ALLOW -> "允许"
+        RuleMode.DELAY -> "延后"
+        RuleMode.COLLECT_ONLY -> "收集"
     }
 }
 
@@ -2094,12 +2342,12 @@ private val weekDays = listOf(
 
 private val DayOfWeek.cnLabel: String
     get() = when (this) {
-        DayOfWeek.MONDAY -> "\u5468\u4e00"
-        DayOfWeek.TUESDAY -> "\u5468\u4e8c"
-        DayOfWeek.WEDNESDAY -> "\u5468\u4e09"
-        DayOfWeek.THURSDAY -> "\u5468\u56db"
-        DayOfWeek.FRIDAY -> "\u5468\u4e94"
-        DayOfWeek.SATURDAY -> "\u5468\u516d"
-        DayOfWeek.SUNDAY -> "\u5468\u65e5"
+        DayOfWeek.MONDAY -> "周一"
+        DayOfWeek.TUESDAY -> "周二"
+        DayOfWeek.WEDNESDAY -> "周三"
+        DayOfWeek.THURSDAY -> "周四"
+        DayOfWeek.FRIDAY -> "周五"
+        DayOfWeek.SATURDAY -> "周六"
+        DayOfWeek.SUNDAY -> "周日"
     }
 
