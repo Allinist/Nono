@@ -179,7 +179,7 @@ private class AppStrings(private val english: Boolean) {
             "未开启，规则暂时不会生效。" to "Disabled. Rules are inactive for now.",
             "已开启" to "Enabled",
             "未开启" to "Disabled",
-            "打开系统设置" to "Open system settings",
+            "打开设置" to "Open settings",
             "刷新状态" to "Refresh status",
             "重连通知监听服务" to "Reconnect notification listener",
             "重置监听组件绑定" to "Reset listener component binding",
@@ -208,6 +208,10 @@ private class AppStrings(private val english: Boolean) {
             "导出会生成一份 JSON 文件，导入时会覆盖当前本地规则。" to "Export creates a JSON file. Import replaces current local rules.",
             "导出配置" to "Export",
             "导入配置" to "Import",
+            "支持项目" to "Support the project",
+            "如果 Nono 对你有帮助，欢迎通过 Open Collective 支持后续维护。" to "If Nono is useful to you, you can support ongoing maintenance through Open Collective.",
+            "打开 Open Collective" to "Open Open Collective",
+            "无法打开捐助页面" to "Unable to open sponsor page",
             "当前还没有规则，去“新增配置”里添加第一条规则。" to "No rules yet. Add your first rule from Add.",
             "暂时没有延后中的通知。" to "No delayed notifications.",
             "暂时没有已收集的通知。" to "No collected notifications.",
@@ -1251,7 +1255,7 @@ private fun SettingsTab(
                         AssistChip(onClick = {}, label = { Text(if (listenerEnabled) s("已开启") else s("未开启")) })
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Button(onClick = onOpenSettings, modifier = Modifier.weight(1f)) { Text(s("打开系统设置")) }
+                        Button(onClick = onOpenSettings, modifier = Modifier.weight(1f)) { Text(s("打开设置")) }
                         Button(onClick = onRefresh, modifier = Modifier.weight(1f)) { Text(s("刷新状态")) }
                     }
                     Button(onClick = onRebindListener, modifier = Modifier.fillMaxWidth()) {
@@ -1548,6 +1552,27 @@ private fun SettingsTab(
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(s("导入配置"))
                         }
+                    }
+                }
+            }
+        }
+
+        item {
+            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F7F4)), shape = RoundedCornerShape(24.dp)) {
+                Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Text(s("支持项目"), fontWeight = FontWeight.SemiBold)
+                    Text(
+                        s("如果 Nono 对你有帮助，欢迎通过 Open Collective 支持后续维护。"),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    Button(
+                        onClick = {
+                            val opened = openDonationPage(context)
+                            if (!opened) toast(context, strings.text("无法打开捐助页面"))
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(s("打开 Open Collective"))
                     }
                 }
             }
@@ -2257,6 +2282,11 @@ private fun openAppDetailsSettings(context: Context) {
         data = Uri.parse("package:${context.packageName}")
     }
     context.startActivity(intent)
+}
+
+private fun openDonationPage(context: Context): Boolean {
+    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://opencollective.com/nonotification"))
+    return openFirstAvailableIntent(context, listOf(intent))
 }
 
 private fun openFirstAvailableIntent(context: Context, intents: List<Intent>): Boolean {
